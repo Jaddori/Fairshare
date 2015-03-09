@@ -6,9 +6,10 @@
    $Notice: (C) Copyright 2014 by SpaceCat, Inc. All Rights Reserved. $
    ======================================================================== */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "fairshare.cpp"
 #include "client.cpp"
