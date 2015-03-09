@@ -70,7 +70,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 char buf[32] = {};
 
                 cout << "Server: Sending message to client." << endl;
-                NetSend( com, msg );
+                NetSend( com, msg, 4 );
 
                 cout << "Server: Waiting for message from client." << endl;
                 NetRecv( com, buf, 32 );

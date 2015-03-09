@@ -80,7 +80,7 @@ void Sync( Net* net, Config* config, vector<string>& split )
     }
 
     const char* msg = "Testing";
-    char buf[32];
+    char buf[32] = {};
 
     cout << "Client: Waiting for message from server." << endl;
     if( !NetRecv( net->socket, buf, 32 ) )
@@ -93,7 +93,7 @@ void Sync( Net* net, Config* config, vector<string>& split )
     cout << "Client: server says \"" << buf << "\"." << endl;
 
     cout << "Client: Sending message to server." << endl;
-    if( !NetSend( net->socket, buf ) )
+    if( !NetSend( net->socket, msg ) )
     {
         cout << "Client network error(send)." << endl;
         return;

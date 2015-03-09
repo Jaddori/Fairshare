@@ -133,7 +133,7 @@ inline bool NetSelect( NetSocket s )
     timeout.tv_sec = DEFAULT_SELECT_TIMEOUT;
     timeout.tv_usec = 0;
     
-    return ( select( s, &readSet, 0, 0, &timeout ) == 1 );
+    return ( select( s+1, &readSet, 0, 0, &timeout ) > 0 );
 }
 
 inline NetSocket NetAccept( NetSocket s )
@@ -259,7 +259,7 @@ inline bool NetSelect( NetSocket s )
     timeout.tv_sec = DEFAULT_SELECT_TIMEOUT;
     timeout.tv_usec = 0;
 
-    return ( select( s, &readSet, 0, 0, &timeout ) > 0 );
+    return ( select( s+1, &readSet, 0, 0, &timeout ) > 0 );
 }
 
 inline NetSocket NetAccept( NetSocket s )
