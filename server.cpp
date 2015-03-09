@@ -18,29 +18,61 @@ ThreadReturnType ServerFunc( ThreadArgs args )
         cout << "Server: Error intializing network data." << endl;
         return 0;
     }
+    else
+    {
+        cout << "Server: Initializing network data." << endl;
+    }
     
     if( !OpenSocket( &net.socket ) )
     {
         cout << "Server: Error initializing network socket." << endl;
         return 0;
     }
+    else
+    {
+        cout << "Server: Opening network socket." << endl;
+    }
 
-    NetBind( net.socket, config->port );
-    NetListen( net.socket );
+    if( !NetBind( net.socket, config->port ) )
+    {
+        cout << "Server: Error binding socket." << endl;
+        return 0;
+    }
+    else
+    {
+        cout << "Server: Binding socket." << endl;
+    }
+
+    if( !NetListen( net.socket ) )
+    {
+        cout << "Server: Error listening on socket." << endl;
+        return 0;
+    }
+    else
+    {
+        cout << "Server: Listening on socket." << endl;
+    }
 
     NetSocket com;
     while( g_running )
     {
         if( NetSelect( net.socket ) )
         {
+            cout << "Server: Pending connection." << endl;
+            
             com = NetAccept( net.socket );
 
             if( NetValidSocket( com ) )
             {
+                cout << "Server: Accepting socket." << endl;
+                
                 const char* msg = "Test";
                 char buf[32] = {};
-            
+
+                cout << "Server: Sending message to client." << endl;
                 NetSend( com, msg );
+
+                cout << "Server: Waiting for message from client." << endl;
                 NetRecv( com, buf, 32 );
 
                 buf[31] = 0;

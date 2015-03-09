@@ -163,10 +163,15 @@ inline bool NetRecv( NetSocket s, char* buf, int len )
 
 #elif LINUX
 
+#include <cstring>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-// server
+// threading
 #define ThreadHandle pthread_t
 #define ThreadReturnType void*
 #define ThreadArgs void*
@@ -190,7 +195,97 @@ inline void SleepSeconds( int seconds )
     sleep( seconds );
 }
 
-// client
+// sockets
+#define NetData int // not really used in POSIX
+#define NetSocket int
+
+struct Net
+{
+    NetData data;
+    NetSocket socket;
+};
+
+inline bool OpenSocket( NetSocket* s )
+{
+    return ( ( *s = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP ) ) != -1 );
+}
+
+inline void CloseSocket( NetSocket s )
+{
+    close( s );
+}
+
+inline bool NetInit( NetData* data )
+{
+    return true; // I know, I know...
+}
+
+inline void NetShutdown()
+{
+}
+
+inline bool NetBind( NetSocket s, int port )
+{
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons( port );
+
+    return ( bind( s, (struct sockaddr*)&addr, sizeof(addr) ) != -1 );
+}
+
+inline bool NetListen( NetSocket s )
+{
+    return ( listen( s, DEFAULT_BACKLOG ) != -1 );
+}
+
+inline bool NetConnect( NetSocket s, const char* ip, int port )
+{
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr( ip );
+    addr.sin_port = htons( port );
+    
+    return ( connect( s, (struct sockaddr*)&addr, sizeof(addr) ) != -1 );
+}
+
+inline bool NetSelect( NetSocket s )
+{
+    fd_set readSet;
+    FD_ZERO( &readSet );
+    FD_SET( s, &readSet );
+
+    timeval timeout;
+    timeout.tv_sec = DEFAULT_SELECT_TIMEOUT;
+    timeout.tv_usec = 0;
+
+    return ( select( s, &readSet, 0, 0, &timeout ) > 0 );
+}
+
+inline NetSocket NetAccept( NetSocket s )
+{
+    return ( accept( s, 0, 0 ) );
+}
+
+inline bool NetValidSocket( NetSocket s )
+{
+    return ( s >= 0 );
+}
+
+inline bool NetSend( NetSocket s, const char* buf, int len = -1 )
+{
+    if( len < 0 )
+    {
+        len = strlen( buf );
+    }
+
+    return ( send( s, buf, len, 0 ) != -1 );
+}
+
+inline bool NetRecv( NetSocket s, char* buf, int len )
+{
+    return ( recv( s, buf, len, 0 ) != -1 );
+}
 
 #else
 

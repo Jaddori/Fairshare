@@ -74,10 +74,15 @@ void Sync( Net* net, Config* config, vector<string>& split )
         cout << "Client network error(connect)." << endl;
         return;
     }
+    else
+    {
+        cout << "Client: Connected." << endl;
+    }
 
     const char* msg = "Testing";
     char buf[32];
-    
+
+    cout << "Client: Waiting for message from server." << endl;
     if( !NetRecv( net->socket, buf, 32 ) )
     {
         cout << "Client network error(recv)." << endl;
@@ -87,6 +92,7 @@ void Sync( Net* net, Config* config, vector<string>& split )
     buf[31] = 0;
     cout << "Client: server says \"" << buf << "\"." << endl;
 
+    cout << "Client: Sending message to server." << endl;
     if( !NetSend( net->socket, buf ) )
     {
         cout << "Client network error(send)." << endl;
@@ -120,11 +126,19 @@ void StartClient( Config* config )
         cout << "Client: Error initializing network data." << endl;
         g_running = false;
     }
+    else
+    {
+        cout << "Client: Initializing network data." << endl;
+    }
 
     if( !OpenSocket( &net.socket ) )
     {
         cout << "Client: Error initializing network socket." << endl;
         g_running = false;
+    }
+    else
+    {
+        cout << "Client: Opening socket." << endl;
     }
     
     while( g_running )
