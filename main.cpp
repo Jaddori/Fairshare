@@ -21,6 +21,9 @@ static bool g_running;
 
 int main( int argc, char** argv )
 {
+    NetData data;
+    ifNetInit( &data, return -1 );
+    
     Config config;
     
     // running with spec. port
@@ -45,6 +48,8 @@ int main( int argc, char** argv )
     StartClient( &config );
 
     ThreadWait( serverThread );
+
+    NetShutdown();
     
     return 0;
 }

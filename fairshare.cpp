@@ -19,6 +19,13 @@ struct Config
     int port;
 };
 
+struct Hub
+{
+    string name;
+    string ip;
+    int port;
+};
+
 inline void StrSplit( const string& str, vector<string>& buf, char delimiter )
 {
     size_t first = 0;
@@ -290,3 +297,53 @@ inline bool NetRecv( NetSocket s, char* buf, int len )
 #else
 
 #endif
+
+// shared
+#define ifOpenSocket( _socket, _expr )    \
+    if( !OpenSocket( (_socket) ) ) \
+    { \
+    cout << "Failed to open socket." << endl; \
+    _expr; \
+    }
+
+#define ifNetInit( _data, _expr )    \
+    if( !NetInit( (_data) ) ) \
+    { \
+    cout << "Failed to initialize network data." << endl; \
+    _expr; \
+    }
+
+#define ifNetBind( _socket, _port, _expr )      \
+    if( !NetBind( (_socket), (_port) ) ) \
+    { \
+    cout << "Failed to bind socket." << endl; \
+    _expr; \
+    }
+
+#define ifNetListen( _socket, _expr )    \
+    if( !NetListen( (_socket) ) ) \
+    { \
+    cout << "Failed to listen on socket." << endl; \
+    _expr; \
+    }
+
+#define ifNetConnect( _socket, _ip, _port, _expr )  \
+    if( !NetConnect( (_socket), (_ip), (_port) ) ) \
+    { \
+    cout << "Failed to connect to \"" << (_ip) << ":" << (_port) << "\"." << endl; \
+    _expr; \
+    }
+
+#define ifNetSend( _socket, _buf, _len, _expr )        \
+    if( !NetSend( (_socket), (_buf), (_len) ) ) \
+    { \
+    cout << "Failed to send data." << endl; \
+    _expr; \
+    }
+
+#define ifNetRecv( _socket, _buf, _len, _expr ) \
+    if( !NetRecv( (_socket), (_buf), (_len) ) ) \
+    { \
+    cout << "Failed to receive data." << endl; \
+    _expr; \
+    }
