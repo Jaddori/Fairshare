@@ -42,6 +42,30 @@ inline void StrSplit( const string& str, vector<string>& buf, char delimiter )
 
 #include <windows.h>
 
+// server
+#define ThreadHandle HANDLE
+#define ThreadReturn DWORD WINAPI
+#define ThreadArgs LPVOID
+#define ThreadFunc LPTHRED_START_ROUTINE
+
+inline ThreadHandle MakeThread( LPTHREAD_START_ROUTINE func, ThreadArgs args )
+{
+    ThreadHandle result = CreateThread( 0, 0, func, args, 0, 0 );
+    return result;
+}
+
+inline void ThreadWait( ThreadHandle threadHandle )
+{
+    WaitForSingleObject( threadHandle, INFINITE );
+}
+
+inline void SleepMS( DWORD ms )
+{
+    Sleep( ms );
+}
+
+// client
+
 #elif LINUX
 
 #else

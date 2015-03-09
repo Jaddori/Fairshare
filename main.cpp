@@ -43,8 +43,10 @@ int main( int argc, char** argv )
 
     g_running = true;
     
-    StartServer( &config );
+    ThreadHandle serverThread = StartServer( &config );
     StartClient( &config );
+
+    ThreadWait( serverThread );
     
     return 0;
 }
