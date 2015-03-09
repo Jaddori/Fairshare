@@ -21,19 +21,17 @@ static bool g_running;
 
 int main( int argc, char** argv )
 {
-    int port;
+    Config config;
     
     // running with spec. port
     if( argc > 1 )
     {
-        port = (int)strtol( argv[1], (char**)0, 10 );
+        config.port = (int)strtol( argv[1], (char**)0, 10 );
     }
     else
     {
-        port = DEFAULT_PORT;
+        config.port = DEFAULT_PORT;
     }
-
-    Config config;
     
     if( !LoadConfig( &config ) )
     {

@@ -67,6 +67,35 @@ bool LoadHubs( Config* config )
     return false;
 }
 
+void Sync( Net* net, Config* config, vector<string>& split )
+{
+    if( !NetConnect( net->socket, "127.0.0.1", DEFAULT_PORT ) )
+    {
+        cout << "Client network error(connect)." << endl;
+        return;
+    }
+
+    const char* msg = "Testing";
+    char buf[32];
+    
+    if( !NetRecv( net->socket, buf, 32 ) )
+    {
+        cout << "Client network error(recv)." << endl;
+        return;
+    }
+
+    buf[31] = 0;
+    cout << "Client: server says \"" << buf << "\"." << endl;
+
+    if( !NetSend( net->socket, buf ) )
+    {
+        cout << "Client network error(send)." << endl;
+        return;
+    }
+
+    CloseSocket( net->socket );
+}
+
 inline void PrintHelp()
 {
     cout << "-add [hub] [ip] [opt:port]\t : adds a new hub with ip and port." << endl;
@@ -84,6 +113,19 @@ void StartClient( Config* config )
     string command;
     vector<string> split;
     split.reserve( 3 );
+
+    Net net;
+    if( !NetInit( &net.data ) )
+    {
+        cout << "Client: Error initializing network data." << endl;
+        g_running = false;
+    }
+
+    if( !OpenSocket( &net.socket ) )
+    {
+        cout << "Client: Error initializing network socket." << endl;
+        g_running = false;
+    }
     
     while( g_running )
     {
@@ -106,6 +148,7 @@ void StartClient( Config* config )
             }
             else if( split[0].compare( "-sync" ) == 0 )
             {
+                Sync( &net, config, split );
             }
             else if( split[0].compare( "-config" ) == 0 ||
                      split[0].compare( "-cfg" ) == 0 )
