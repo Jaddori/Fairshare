@@ -8,11 +8,11 @@
 
 // server.cpp
 
-ThreadReturn ServerFunc( ThreadArgs args )
+ThreadReturnType ServerFunc( ThreadArgs args )
 {
     while( g_running )
     {
-        SleepMS( 1000 );
+        SleepSeconds( 1 );
     }
 
     return 0;

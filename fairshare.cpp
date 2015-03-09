@@ -44,11 +44,11 @@ inline void StrSplit( const string& str, vector<string>& buf, char delimiter )
 
 // server
 #define ThreadHandle HANDLE
-#define ThreadReturn DWORD WINAPI
+#define ThreadReturnType DWORD WINAPI
 #define ThreadArgs LPVOID
 #define ThreadFunc LPTHRED_START_ROUTINE
 
-inline ThreadHandle MakeThread( LPTHREAD_START_ROUTINE func, ThreadArgs args )
+inline ThreadHandle MakeThread( ThreadFunc func, ThreadArgs args )
 {
     ThreadHandle result = CreateThread( 0, 0, func, args, 0, 0 );
     return result;
@@ -59,14 +59,43 @@ inline void ThreadWait( ThreadHandle threadHandle )
     WaitForSingleObject( threadHandle, INFINITE );
 }
 
-inline void SleepMS( DWORD ms )
+inline void SleepSeconds( DWORD seconds )
 {
-    Sleep( ms );
+    Sleep( seconds*1000 );
 }
 
 // client
 
 #elif LINUX
+
+#include <unistd.h>
+#include <pthread.h>
+
+// server
+#define ThreadHandle pthread_t
+#define ThreadReturnType void*
+#define ThreadArgs void*
+typedef void*(*ThreadFunc)(void*);
+
+inline ThreadHandle MakeThread( ThreadFunc func, ThreadArgs args )
+{
+    ThreadHandle result;
+    int err = pthread_create( &result, 0, func, args );
+    // TODO: Add error handling
+    return result;
+}
+
+inline void ThreadWait( ThreadHandle threadHandle )
+{
+    pthread_join( threadHandle, 0 );
+}
+
+inline void SleepSeconds( int seconds )
+{
+    sleep( seconds );
+}
+
+// client
 
 #else
 
