@@ -246,10 +246,9 @@ void Sync( Config* config, vector<string>& split )
 
     // LOOP THROUGH DIR
     vector<string> locFiles;
-    DirectoryGetFiles( config->folder, locFiles );
+    ifDirectoryGetFiles( config->folder, locFiles, return );
 
     vector<string> unsyncedFiles;
-
     StrCompare( hubFiles, locFiles, unsyncedFiles );
     
     ifWriteWholeFile( "./unsynced.txt", unsyncedFiles, return );

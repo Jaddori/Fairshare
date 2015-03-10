@@ -126,6 +126,13 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     _expr; \
     }
 
+#define ifDirectoryGetFiles( _path, _buf, _expr ) \
+    if( !DirectoryGetFiles( (_path), (_buf) ) ) \
+    { \
+    cout << "Failed to open directory \"" << (_path) << "\"." << endl; \
+    _expr; \
+    }
+
 #define ifOpenSocket( _socket, _expr )    \
     if( !OpenSocket( (_socket) ) ) \
     { \
@@ -214,10 +221,10 @@ bool DirectoryGetFiles( const string& path, vector<string>& buf )
 {
     bool result = false;
     
-    path += string( "\\*" );
+    string p = path + string( "\\*" );
     WIN32_FIND_DATA fd;
-
-    HANDLE findhandle = FindFirstFileA( path.c_str() );
+    
+    HANDLE findhandle = FindFirstFileA( p.c_str(), &fd );
     if( findhandle != INVALID_HANDLE_VALUE )
     {
         do
