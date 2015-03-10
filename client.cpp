@@ -240,46 +240,84 @@ void Sync( Config* config, vector<string>& split )
     // 2. recv hub files
     ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
 
-    #if 0
-    int filehandle = open( "./hubfiles.tmp", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
-
-    if( filehandle < 0 )
+    // 3. compare hub files to local files
+#if WIN32
+    vector<string> hubFiles;
+    ifstream hubStream( "./hubfiles.tmp" );
+    string line;
+    while( hubStream )
     {
-        cout << "BAD FILEHANDLE ON CLIENT" << endl;
-        return;
+        getline( hubStream, line );
+
+        if( hubStream )
+        {
+            hubFiles.push_back( line );
+        }
+    }
+    hubStream.close();
+
+    vector<string> locFiles;
+    string path = config->folder + string("\\*");
+    WIN32_FIND_DATA fd;
+
+    HANDLE findHandle = FindFirstFileA( path.c_str(), &fd );
+    if( findHandle != INVALID_HANDLE_VALUE )
+    {
+        do
+        {
+            if( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+            {
+                cout << "Skipping directory \"" << fd.cFileName << endl;
+                continue;
+            }
+
+            locFiles.push_back( string(fd.cFileName) );
+        } while( FindNextFile( findHandle, &fd ) );
+        
+        FindClose( findHandle );
     }
 
-    int r;
-    char filebuf[1024];
-
-    do
+    vector<string> unsyncedFiles;
+    for( vector<string>::iterator hubIT = hubFiles.begin(); hubIT != hubFiles.end(); hubIT++ )
     {
-        r = recv( nsocket, filebuf, 1024, 0 );
-        if( r < 0 )
+        bool found = false;
+        for( vector<string>::iterator locIT = locFiles.begin(); locIT != locFiles.end() && !found; locIT++ )
         {
-            cout << "RECV FAILURE ON CLIENT" << endl;
-            return;
+            if( hubIT->compare( *locIT ) == 0 )
+            {
+                // TODO: To improve performance, remove entry if match is made
+                found = true;
+            }
         }
 
-        if( write( filehandle, filebuf, r ) < 0 )
+        if( !found )
         {
-            cout << "WRITE FAILURE ON CLIENT" << endl;
-            return;
+            unsyncedFiles.push_back( *hubIT );
         }
-    } while( r >= 1024 );
+    }
 
-    close( filehandle );
-    #endif
-    
-    // 3. compare hub files to local files
+    ofstream unsyncStream( "./unsynced.txt", ios_base::out );
+    if( unsyncStream.is_open() )
+    {
+        for( int i=0; i<unsyncedFiles.size(); i++ )
+        {
+            unsyncStream << unsyncedFiles[i] << endl;
+        }
+        unsyncStream.close();
+    }
 
     // 4. send unsynced files
+    ifNetSendFile( nsocket, "./unsynced.txt", return );
+    
+#endif
 
     // 5. recv name and size of unsynced file
 
     // 6. recv unsynced file
     
     CloseSocket( nsocket );
+
+    cout << "Syncronization complete." << endl;
 }
 
 inline void PrintHelp()

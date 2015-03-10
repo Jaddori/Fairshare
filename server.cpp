@@ -31,6 +31,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 ifNetSendFile( com, "./hubfiles.txt", return 0 );
 
                 // 3. recv unsynced files
+                ifNetRecvFile( com, "./unsynced.tmp", return 0 );
 
                 // 4. send name and size of requested file
 
