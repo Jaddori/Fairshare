@@ -241,75 +241,21 @@ void Sync( Config* config, vector<string>& split )
     ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
 
     // 3. compare hub files to local files
-#if WIN32
     vector<string> hubFiles;
-    ifstream hubStream( "./hubfiles.tmp" );
-    string line;
-    while( hubStream )
-    {
-        getline( hubStream, line );
+    ifReadWholeFile( "./hubfiles.tmp", hubFiles, return );
 
-        if( hubStream )
-        {
-            hubFiles.push_back( line );
-        }
-    }
-    hubStream.close();
-
+    // LOOP THROUGH DIR
     vector<string> locFiles;
-    string path = config->folder + string("\\*");
-    WIN32_FIND_DATA fd;
-
-    HANDLE findHandle = FindFirstFileA( path.c_str(), &fd );
-    if( findHandle != INVALID_HANDLE_VALUE )
-    {
-        do
-        {
-            if( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-            {
-                cout << "Skipping directory \"" << fd.cFileName << endl;
-                continue;
-            }
-
-            locFiles.push_back( string(fd.cFileName) );
-        } while( FindNextFile( findHandle, &fd ) );
-        
-        FindClose( findHandle );
-    }
+    DirectoryGetFiles( config->folder, locFiles );
 
     vector<string> unsyncedFiles;
-    for( vector<string>::iterator hubIT = hubFiles.begin(); hubIT != hubFiles.end(); hubIT++ )
-    {
-        bool found = false;
-        for( vector<string>::iterator locIT = locFiles.begin(); locIT != locFiles.end() && !found; locIT++ )
-        {
-            if( hubIT->compare( *locIT ) == 0 )
-            {
-                // TODO: To improve performance, remove entry if match is made
-                found = true;
-            }
-        }
 
-        if( !found )
-        {
-            unsyncedFiles.push_back( *hubIT );
-        }
-    }
-
-    ofstream unsyncStream( "./unsynced.txt", ios_base::out );
-    if( unsyncStream.is_open() )
-    {
-        for( int i=0; i<unsyncedFiles.size(); i++ )
-        {
-            unsyncStream << unsyncedFiles[i] << endl;
-        }
-        unsyncStream.close();
-    }
+    StrCompare( hubFiles, locFiles, unsyncedFiles );
+    
+    ifWriteWholeFile( "./unsynced.txt", unsyncedFiles, return );
 
     // 4. send unsynced files
     ifNetSendFile( nsocket, "./unsynced.txt", return );
-    
-#endif
 
     // 5. recv name and size of unsynced file
 

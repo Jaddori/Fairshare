@@ -26,7 +26,7 @@ struct Hub
     int port;
 };
 
-inline void StrSplit( const string& str, vector<string>& buf, char delimiter )
+void StrSplit( const string& str, vector<string>& buf, char delimiter )
 {
     size_t first = 0;
     size_t last = str.find_first_of( delimiter );
@@ -47,6 +47,84 @@ inline void StrSplit( const string& str, vector<string>& buf, char delimiter )
         last = str.find_first_of( delimiter, first );
     }
 }
+
+void StrCompare( const vector<string>& a,
+                 const vector<string>& b,
+                 vector<string>& dif )
+{
+    for( vector<string>::const_iterator ait = a.begin(); ait != a.end(); ait++ )
+    {
+        bool found = false;
+        for( vector<string>::const_iterator bit = b.begin(); bit != b.end() && !found; bit++ )
+        {
+            if( ait->compare( *bit ) == 0 )
+            {
+                found = true;
+            }
+        }
+
+        if( !found )
+        {
+            dif.push_back( *ait );
+        }
+    }
+}
+
+bool ReadWholeFile( const char* file, vector<string>& buf )
+{
+    bool result = false;
+    
+    ifstream stream( file );
+    if( stream.is_open() )
+    {
+        string line;
+        while( stream )
+        {
+            getline( stream, line );
+            if( stream )
+            {
+                buf.push_back( line );
+            }
+        }
+        stream.close();
+        result = true;
+    }
+
+    return result;
+}
+
+bool WriteWholeFile( const char* file, const vector<string>& buf )
+{
+    bool result = false;
+
+    ofstream stream( file );
+    if( stream.is_open() )
+    {
+        for( vector<string>::const_iterator it = buf.begin(); it != buf.end(); it++ )
+        {
+            stream << *it << endl;
+        }
+        stream.close();
+        
+        result = true;
+    }
+
+    return result;
+}
+
+#define ifReadWholeFile( _file, _buf, _expr )     \
+    if( !ReadWholeFile( (_file), (_buf) ) ) \
+    { \
+    cout << "Failed to read file \"" << (_file) << "\"." << endl; \
+    _expr; \
+    }
+
+#define ifWriteWholeFile( _file, _buf, _expr ) \
+    if( !WriteWholeFile( (_file), (_buf) ) ) \
+    { \
+    cout << "Failed to write file \"" << (_file) << "\"." << endl; \
+    _expr; \
+    }
 
 #define ifOpenSocket( _socket, _expr )    \
     if( !OpenSocket( (_socket) ) ) \
@@ -129,6 +207,35 @@ inline ThreadHandle MakeThread( ThreadFunc func, ThreadArgs args )
 inline void ThreadWait( ThreadHandle threadHandle )
 {
     WaitForSingleObject( threadHandle, INFINITE );
+}
+
+// IO
+bool DirectoryGetFiles( const string& path, vector<string>& buf )
+{
+    bool result = false;
+    
+    path += string( "\\*" );
+    WIN32_FIND_DATA fd;
+
+    HANDLE findhandle = FindFirstFileA( path.c_str() );
+    if( findhandle != INVALID_HANDLE_VALUE )
+    {
+        do
+        {
+            if( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+            {
+                cout << "Skipping directory \"" << fd.cFileName << "\"." << endl;
+                continue;
+            }
+
+            buf.push_back( string(fd.cFileName) );
+        } while( FindNextFile( findhandle, &fd ) );
+
+        FindClose( findhandle );
+        result = true;
+    }
+
+    return result;
 }
 
 // sockets
@@ -323,6 +430,7 @@ bool NetRecvFile( NetSocket s, const char* file )
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dirent.h>
 
 // threading
 #define ThreadHandle pthread_t
@@ -346,6 +454,29 @@ inline void ThreadWait( ThreadHandle threadHandle )
 inline void SleepSeconds( int seconds )
 {
     sleep( seconds );
+}
+
+// IO
+bool DirectoryGetFiles( const string& path, vector<string>& buf )
+{
+    bool result = false;
+
+    DIR* dir = opendir( path.c_str() );
+    if( dir != 0 )
+    {
+        struct dirent* dirinfo;
+        while( dirinfo = readdir( dir ) )
+        {
+            if( dirinfo->d_type == DT_REG ) // this is a regular file
+            {
+                buf.push_back( string(dirinfo->d_name) );
+            }
+        }
+        closedir( dir );
+        result = true;
+    }
+
+    return result;
 }
 
 // sockets
@@ -495,6 +626,11 @@ bool NetRecvFile( NetSocket s, const char* file )
         {
             r = NetRecv( s, filebuf, 1024 );
             ifNetRecv( r, return false );
+
+            if( write( filehandle, filebuf, r ) < 0 )
+            {
+                return false;
+            }
         } while( r >= 1024 );
 
         close( filehandle );
