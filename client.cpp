@@ -233,17 +233,20 @@ void Sync( Config* config, vector<string>& split )
 {
     NetSocket nsocket;
     ifOpenSocket( &nsocket, return );
+
+    // 1. connect
     ifNetConnect( nsocket, "127.0.0.1", DEFAULT_PORT, return );
 
-    const char* msg = "Testing";
-    char buf[32] = {};
+    // 2. recv hub files
+    ifNetRecvFile( nsocket, "hubfiles.tmp", return );
 
-    ifNetRecv( nsocket, buf, 32, return );
-    
-    buf[31] = 0;
-    cout << "Client: server says \"" << buf << "\"." << endl;
+    // 3. compare hub files to local files
 
-    ifNetSend( nsocket, msg, strlen(msg), return );
+    // 4. send unsynced files
+
+    // 5. recv name and size of unsynced file
+
+    // 6. recv unsynced file
     
     CloseSocket( nsocket );
 }

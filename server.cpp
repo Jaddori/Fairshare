@@ -22,18 +22,19 @@ ThreadReturnType ServerFunc( ThreadArgs args )
     {
         if( NetSelect( nsocket ) )
         {
+            // 1. accept connection
             com = NetAccept( nsocket );
 
             if( NetValidSocket( com ) )
             {
-                const char* msg = "Test";
-                char buf[32] = {};
+                // 2. send hub filelist
+                ifNetSendFile( com, "hubfiles.txt", return 0 );
 
-                ifNetSend( com, msg, strlen(msg), continue );
-                ifNetRecv( com, buf, 32, continue );
+                // 3. recv unsynced files
 
-                buf[31] = 0;
-                cout << "Server: client says \"" << buf << "\"." << endl;
+                // 4. send name and size of requested file
+
+                // 5. send requested file
 
                 CloseSocket( com );
             }
