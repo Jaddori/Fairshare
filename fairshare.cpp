@@ -318,8 +318,11 @@ bool NetRecvFile( NetSocket s, const char* file )
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <errno.h>
 
 // threading
 #define ThreadHandle pthread_t
@@ -443,6 +446,62 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     cout << "Failed to receive network data." << endl; \
     _expr; \
     }
+
+bool NetSendFile( NetSocket s, const char* file )
+{
+    int filehandle = open( file, O_RDONLY | O_CREAT, S_IRWXU );
+    if( filehandle < 0 )
+    {
+        return false;
+    }
+
+    struct stat filestats;
+    if( fstat( filehandle, &filestats ) < 0 )
+    {
+        return false;
+    }
+
+    unsigned long remaining = filestats.st_size;
+    char filebuf[1024];
+                
+    do
+    {
+        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+
+        if( read( filehandle, filebuf, sendsize ) < 0 )
+        {
+            return false;
+        }
+
+        ifNetSend( s, filebuf, sendsize, return false );
+        remaining -= sendsize;
+    } while( remaining > 0 );
+                
+    close( filehandle );
+
+    return true;
+}
+
+bool NetRecvFile( NetSocket s, const char* file )
+{
+    int filehandle = open( file, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
+
+    if( filehandle >= 0 )
+    {
+        char filebuf[1024];
+        int r;
+        
+        do
+        {
+            r = NetRecv( s, filebuf, 1024 );
+            ifNetRecv( r, return false );
+        } while( r >= 1024 );
+
+        close( filehandle );
+    }
+
+    return true;
+}
 
 #else
 

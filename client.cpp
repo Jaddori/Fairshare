@@ -238,8 +238,39 @@ void Sync( Config* config, vector<string>& split )
     ifNetConnect( nsocket, "127.0.0.1", DEFAULT_PORT, return );
 
     // 2. recv hub files
-    ifNetRecvFile( nsocket, "hubfiles.tmp", return );
+    ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
 
+    #if 0
+    int filehandle = open( "./hubfiles.tmp", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
+
+    if( filehandle < 0 )
+    {
+        cout << "BAD FILEHANDLE ON CLIENT" << endl;
+        return;
+    }
+
+    int r;
+    char filebuf[1024];
+
+    do
+    {
+        r = recv( nsocket, filebuf, 1024, 0 );
+        if( r < 0 )
+        {
+            cout << "RECV FAILURE ON CLIENT" << endl;
+            return;
+        }
+
+        if( write( filehandle, filebuf, r ) < 0 )
+        {
+            cout << "WRITE FAILURE ON CLIENT" << endl;
+            return;
+        }
+    } while( r >= 1024 );
+
+    close( filehandle );
+    #endif
+    
     // 3. compare hub files to local files
 
     // 4. send unsynced files

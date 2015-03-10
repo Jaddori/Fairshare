@@ -28,7 +28,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
             if( NetValidSocket( com ) )
             {
                 // 2. send hub filelist
-                ifNetSendFile( com, "hubfiles.txt", return 0 );
+                ifNetSendFile( com, "./hubfiles.txt", return 0 );
 
                 // 3. recv unsynced files
 
