@@ -234,32 +234,109 @@ void Sync( Config* config, vector<string>& split )
     NetSocket nsocket;
     ifOpenSocket( &nsocket, return );
 
-    // 1. connect
     ifNetConnect( nsocket, "127.0.0.1", DEFAULT_PORT, return );
+    cout << "Client: Connected!" << endl;
 
-    // 2. recv hub files
     ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
+    cout << "Client: Received list of hub files." << endl;
 
-    // 3. compare hub files to local files
     vector<string> hubFiles;
     ifReadWholeFile( "./hubfiles.tmp", hubFiles, return );
+
+    cout << "Client: Hub files (" << hubFiles.size() << "):" << endl;
+    for( int i=0; i<hubFiles.size(); i++ )
+    {
+        cout << (i+1) << ". " << hubFiles[i] << endl;
+    }
 
     // LOOP THROUGH DIR
     vector<string> locFiles;
     ifDirectoryGetFiles( config->folder, locFiles, return );
 
+    cout << "Client: Read list of local files." << endl;
+    cout << "Client: Local files(" << locFiles.size() << "):" << endl;
+
+    for( int i=0; i<locFiles.size(); i++ )
+    {
+        cout << (i+1) << ". " << locFiles[i] << endl;
+    }
+
     vector<string> unsyncedFiles;
     StrCompare( hubFiles, locFiles, unsyncedFiles );
+
+    cout << "Client: Comparing hub files to local files." << endl;
+    cout << "Client: Unsynced files (" << unsyncedFiles.size() << "):" << endl;
+
+    for( int i=0; i<unsyncedFiles.size(); i++ )
+    {
+        cout << (i+1) << ". " << unsyncedFiles[i] << endl;
+    }
     
     ifWriteWholeFile( "./unsynced.txt", unsyncedFiles, return );
+    cout << "Client: Writing unsynced files to file." << endl;
 
-    // 4. send unsynced files
     ifNetSendFile( nsocket, "./unsynced.txt", return );
+    cout << "Client: Sending unsynced file list." << endl;
 
-    // 5. recv name and size of unsynced file
+    #if WIN32
+    if( unsyncedFiles.size() > 0 )
+    {
+        char filebuf[1024];
 
-    // 6. recv unsynced file
-    
+        int r = 1024;
+        while( r > 0 )
+        {
+            memset( filebuf, 0, 1024 );
+            r = NetRecv( nsocket, filebuf, 1024 );
+        
+            ifNetRecv( r, return )
+            else if( r > 0 )
+            {
+                unsigned long filesize;
+                unsigned int namelen;
+
+                int offset = 0;
+                memcpy( &filesize, filebuf, sizeof(filesize) );
+                offset += sizeof(filesize);
+                memcpy( &namelen, filebuf+offset, sizeof(namelen) );
+                offset += sizeof(namelen);
+                string filename( filebuf+offset, namelen );
+
+                cout << "Client: got fileinfo \"" << filename << ":" << filesize << "\"." << endl;
+
+                string path = config->folder + string("\\") + string(filename);
+                HANDLE filehandle = CreateFile( path.c_str(),
+                                                GENERIC_WRITE,
+                                                0,
+                                                0,
+                                                CREATE_ALWAYS,
+                                                FILE_ATTRIBUTE_NORMAL,
+                                                0 );
+
+                do
+                {
+                    r = NetRecv( nsocket, filebuf, 1024 );
+                    ifNetRecv( r, return );
+
+                    cout << "Client: Received \"" << r << " bytes\"." << endl;
+
+                    DWORD bytesWritten;
+                    WriteFile( filehandle,
+                               filebuf,
+                               r,
+                               &bytesWritten,
+                               0 );
+                } while( r >= 1024 );
+
+                cout << "Client: Closing file." << endl;
+                CloseHandle( filehandle );
+                cout << "Client: Closed file." << endl;
+            }
+        }
+    }
+    #endif
+
+    cout << "Client: Closing socket." << endl;
     CloseSocket( nsocket );
 
     cout << "Syncronization complete." << endl;
