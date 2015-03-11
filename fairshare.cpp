@@ -127,7 +127,7 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     }
 
 #define ifDirectoryGetFiles( _path, _buf, _expr ) \
-    if( !DirectoryGetFiles( (_path), (_buf) ) ) \
+    if( !FSDirectoryGetFiles( (_path), (_buf) ) ) \
     { \
     cout << "Failed to open directory \"" << (_path) << "\"." << endl; \
     _expr; \
@@ -175,10 +175,24 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     _expr; \
     }
 
+#define ifNetSendFileHandle( _socket, _filehandle, _size, _expr )  \
+    if( !NetSendFileHandle( (_socket), (_filehandle), (_size) ) ) \
+    { \
+    cout << "Failed to send filehandle." << endl; \
+    _expr; \
+    }
+
 #define ifNetSendFile( _socket, _file, _expr ) \
     if( !NetSendFile( (_socket), (_file) ) ) \
     { \
     cout << "Failed to send file." << endl; \
+    _expr; \
+    }
+
+#define ifNetRecvFileHandle( _socket, _filehandle, _expr ) \
+    if( !NetRecvFileHandle( (_socket), (_filehandle) ) ) \
+    { \
+    cout << "Failed to receive filehandle." << endl; \
     _expr; \
     }
 
@@ -217,7 +231,7 @@ inline void ThreadWait( ThreadHandle threadHandle )
 }
 
 // IO
-bool DirectoryGetFiles( const string& path, vector<string>& buf )
+bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
 {
     bool result = false;
     
@@ -464,7 +478,12 @@ inline void SleepSeconds( int seconds )
 }
 
 // IO
-bool DirectoryGetFiles( const string& path, vector<string>& buf )
+#define FileHandle int
+#define FileDisposition int
+#define FSWrite O_WRONLY | O_CREAT
+#define FSRead O_RDONLY
+
+bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
 {
     bool result = false;
 
@@ -483,6 +502,36 @@ bool DirectoryGetFiles( const string& path, vector<string>& buf )
         result = true;
     }
 
+    return result;
+}
+
+unsigned long FSGetFileSize( FileHandle handle )
+{
+    unsigned long result = 0;
+    
+    struct stat filestats;
+    if( fstat( handle, &filestats ) >= 0 )
+    {
+        result = filestats.st_size;
+    }
+
+    return result;
+}
+
+FileHandle FSOpenFile( const char* path, FileDisposition disp )
+{
+    FileHandle result = open( path, disp, S_IRWXU );
+    return result;
+}
+
+void FSCloseFile( FileHandle handle )
+{
+    close( handle );
+}
+
+bool FSValidHandle( FileHandle handle )
+{
+    bool result = ( handle >= 0 );
     return result;
 }
 
@@ -585,6 +634,27 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     _expr; \
     }
 
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+{
+    unsigned long remaining = size;
+    char filebuf[1024];
+
+    do
+    {
+        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+
+        if( read( filehandle, filebuf, sendsize ) < 0 )
+        {
+            return false;
+        }
+
+        ifNetSend( s, filebuf, sendsize, return false );
+        remaining -= sendsize;
+    } while( remaining > 0 );
+
+    return true;
+}
+
 bool NetSendFile( NetSocket s, const char* file )
 {
     int filehandle = open( file, O_RDONLY | O_CREAT, S_IRWXU );
@@ -601,7 +671,7 @@ bool NetSendFile( NetSocket s, const char* file )
 
     unsigned long remaining = filestats.st_size;
     char filebuf[1024];
-                
+
     do
     {
         int sendsize = ( remaining > 1024 ? 1024 : remaining );
@@ -620,6 +690,25 @@ bool NetSendFile( NetSocket s, const char* file )
     return true;
 }
 
+bool NetRecvFileHandle( NetSocket s, FileHandle filehandle )
+{
+    char filebuf[1024];
+    int r;
+
+    do
+    {
+        r = NetRecv( s, filebuf, 1024 );
+        ifNetRecv( r, return false );
+
+        if( write( filehandle, filebuf, r ) < 0 )
+        {
+            return false;
+        }
+    } while( r >= 1024 );
+
+    return true;
+}
+
 bool NetRecvFile( NetSocket s, const char* file )
 {
     int filehandle = open( file, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
@@ -628,7 +717,7 @@ bool NetRecvFile( NetSocket s, const char* file )
     {
         char filebuf[1024];
         int r;
-        
+
         do
         {
             r = NetRecv( s, filebuf, 1024 );

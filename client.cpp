@@ -278,6 +278,46 @@ void Sync( Config* config, vector<string>& split )
     ifNetSendFile( nsocket, "./unsynced.txt", return );
     cout << "Client: Sending unsynced file list." << endl;
 
+    if( unsyncedFiles.size() > 0 )
+    {
+        char filebuf[1024];
+
+        int r = 1024;
+        while( r > 0 )
+        {
+            memset( filebuf, 0, 1024 );
+            r = NetRecv( nsocket, filebuf, 1024 );
+
+            ifNetRecv( r, return )
+            else if( r > 0 )
+            {
+                filebuf[1023] = 0; // make sure string is null-terminated
+
+                unsigned long filesize;
+                memcpy( &filesize, filebuf, sizeof(filesize) );
+                string filename( filebuf+sizeof(filesize) );
+
+                cout << "Client: Got fileinfo \"" << filename << ":" << filesize << "\"." << endl;
+
+                string path = config->folder + string( "/" ) + filename;
+                cout << "Client: PATH = \"" << path << "\"." << endl;
+                FileHandle filehandle = FSOpenFile( path.c_str(), FSWrite );
+                if( FSValidHandle( filehandle ) )
+                {
+                    ifNetRecvFileHandle( nsocket, filehandle, return )
+
+                    cout << "Client: Closing file." << endl;
+                    FSCloseFile( filehandle );
+                    cout << "Client: Closed file." << endl;
+                }
+                else
+                {
+                    cout << "Client: File error \"" << strerror(errno) << "\"." << endl;
+                }
+            }
+        }
+    }
+
     #if WIN32
     if( unsyncedFiles.size() > 0 )
     {
@@ -304,7 +344,7 @@ void Sync( Config* config, vector<string>& split )
 
                 cout << "Client: got fileinfo \"" << filename << ":" << filesize << "\"." << endl;
 
-                string path = config->folder + string("\\") + string(filename);
+                string path = config->folder + string("\\") + filename;
                 HANDLE filehandle = CreateFile( path.c_str(),
                                                 GENERIC_WRITE,
                                                 0,
@@ -339,7 +379,7 @@ void Sync( Config* config, vector<string>& split )
     cout << "Client: Closing socket." << endl;
     CloseSocket( nsocket );
 
-    cout << "Syncronization complete." << endl;
+    cout << "Client: Syncronization complete." << endl;
 }
 
 inline void PrintHelp()

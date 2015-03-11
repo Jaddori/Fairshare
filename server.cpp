@@ -47,6 +47,38 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                     cout << (i+1) << ". " << unsyncedFiles[i] << endl;
                 }
 
+                if( unsyncedFiles.size() > 0 )
+                {
+                    char filebuf[1024];
+                    for( vector<string>::iterator it = unsyncedFiles.begin(); it != unsyncedFiles.end(); it++ )
+                    {
+                        string path = config->folder + string( "/" ) + *it;
+                        FileHandle filehandle = FSOpenFile( path.c_str(), FSRead );
+                        if( FSValidHandle( filehandle ) )
+                        {
+                            cout << "Server: Opening file \"" << path << "\"." << endl;
+
+                            unsigned long remaining = FSGetFileSize( filehandle );
+                            memcpy( filebuf, &remaining, sizeof(remaining) );
+                            strcpy( filebuf+sizeof(remaining), it->c_str() );
+
+                            cout << "Server: sending filesize and filename." << endl;
+                            cout << "Server: \"" << *it << ":" << remaining << "\"." << endl;
+                            ifNetSend( com, filebuf, 1024, return 0 );
+
+                            ifNetSendFileHandle( com, filehandle, remaining, return 0 );
+
+                            cout << "Server: Closing file." << endl;
+                            FSCloseFile( filehandle );
+                            cout << "Server: Closed file." << endl;
+                        }
+                        else
+                        {
+                            cout << "Failed to open requested file \"" << path << "\"." << endl;
+                        }
+                    }
+                }
+                
                 #if WIN32
                 if( unsyncedFiles.size() > 0 )
                 {
@@ -107,11 +139,12 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                     }
                 }
                 #endif
-
                 // 5. send requested file
 
                 cout << "Server: Closing socket." << endl;
                 CloseSocket( com );
+
+                cout << "Server: Synchronization complete." << endl;
             }
         }
     }
