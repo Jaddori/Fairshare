@@ -28,30 +28,43 @@ bool SaveConfig( Config* config )
     return result;
 }
 
-bool LoadConfig( Config* config )
+bool LoadConfig( Config* config, bool force = false )
 {
     bool result = false;
     
-    ifstream stream( "config.txt" );
-    if( stream.is_open() )
+    if( force )
     {
-        getline( stream, config->username );
-        getline( stream, config->folder );
-        stream.close();
-
-        result = true;
-    }
-    else
-    {
-        cout << "No configuration file found." << endl;
-        
         cout << "Please enter username: ";
         getline( cin, config->username );
-        
+
         cout << "Please enter hub folder: ";
         getline( cin, config->folder );
 
         result = SaveConfig( config );
+    }
+    else
+    {
+        ifstream stream( "config.txt" );
+        if( stream.is_open() )
+        {
+            getline( stream, config->username );
+            getline( stream, config->folder );
+            stream.close();
+
+            result = true;
+        }
+        else
+        {
+            cout << "No configuration file detected." << endl;
+            
+            cout << "Please enter username: ";
+            getline( cin, config->username );
+
+            cout << "Please enter hub folder: ";
+            getline( cin, config->folder );
+
+            result = SaveConfig( config );
+        }
     }
 
     return result;
@@ -229,63 +242,46 @@ void ListHubs( vector<Hub>& hubs )
     }
 }
 
-void Sync( Config* config, vector<string>& split )
+void SyncHub( Config* config, Hub* hub )
 {
+    // open socket
     NetSocket nsocket;
     ifOpenSocket( &nsocket, return );
 
-    ifNetConnect( nsocket, "127.0.0.1", DEFAULT_PORT, return );
-    cout << "Client: Connected!" << endl;
+    // connect to remote server
+    ifNetConnect( nsocket, hub->ip.c_str(), hub->port, return );
 
+    // receive available hub files
     ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
-    cout << "Client: Received list of hub files." << endl;
 
     vector<string> hubFiles;
     ifReadWholeFile( "./hubfiles.tmp", hubFiles, return );
-
-    cout << "Client: Hub files (" << hubFiles.size() << "):" << endl;
-    for( int i=0; i<hubFiles.size(); i++ )
-    {
-        cout << (i+1) << ". " << hubFiles[i] << endl;
-    }
-
-    // LOOP THROUGH DIR
+    
+    // read local files
     vector<string> locFiles;
-    ifDirectoryGetFiles( config->folder, locFiles, return );
-
-    cout << "Client: Read list of local files." << endl;
-    cout << "Client: Local files(" << locFiles.size() << "):" << endl;
-
-    for( int i=0; i<locFiles.size(); i++ )
-    {
-        cout << (i+1) << ". " << locFiles[i] << endl;
-    }
-
+    ifFSDirectoryGetFiles( config->folder, locFiles, return );
+    
+    // compare local files to hub files
     vector<string> unsyncedFiles;
     StrCompare( hubFiles, locFiles, unsyncedFiles );
 
-    cout << "Client: Comparing hub files to local files." << endl;
-    cout << "Client: Unsynced files (" << unsyncedFiles.size() << "):" << endl;
-
-    for( int i=0; i<unsyncedFiles.size(); i++ )
-    {
-        cout << (i+1) << ". " << unsyncedFiles[i] << endl;
-    }
-    
+    // write unsynced files to file
     ifWriteWholeFile( "./unsynced.txt", unsyncedFiles, return );
-    cout << "Client: Writing unsynced files to file." << endl;
 
+    // send list of unsynced files
     ifNetSendFile( nsocket, "./unsynced.txt", return );
-    cout << "Client: Sending unsynced file list." << endl;
 
+    // make sure there is atleast one unsynced file
     if( unsyncedFiles.size() > 0 )
     {
         char filebuf[1024];
 
         int r = 1024;
-        while( r > 0 )
+        while( r > 0 ) // loop until there is no data being received
         {
             memset( filebuf, 0, 1024 );
+
+            // receive filesize and filename
             r = NetRecv( nsocket, filebuf, 1024 );
 
             ifNetRecv( r, return )
@@ -293,22 +289,53 @@ void Sync( Config* config, vector<string>& split )
             {
                 filebuf[1023] = 0; // make sure string is null-terminated
 
+                // extract filesize from the byte array
                 unsigned long filesize;
                 memcpy( &filesize, filebuf, sizeof(filesize) );
                 string filename( filebuf+sizeof(filesize) );
 
-                cout << "Client: Got fileinfo \"" << filename << ":" << filesize << "\"." << endl;
-
                 string path = config->folder + string( "/" ) + filename;
-                cout << "Client: PATH = \"" << path << "\"." << endl;
+
+                // open requested file
                 FileHandle filehandle = FSOpenFile( path.c_str(), FSWrite );
                 if( FSValidHandle( filehandle ) )
                 {
-                    ifNetRecvFileHandle( nsocket, filehandle, return )
+                    // receive requested file
+                    //ifNetRecvFileHandle( nsocket, filehandle, return );
 
-                    cout << "Client: Closing file." << endl;
+                    char filebuf[1024];
+                    int r;
+                    unsigned long total = 0;
+
+                    int progress = 0;
+                    unsigned long percentages[3] =
+                    {
+                        filesize / 4,
+                        filesize / 2,
+                        (filesize / 4) * 3
+                    };
+                    const char* percentageNames[3] = { "25%", "50%", "75%" };
+
+                    do
+                    {
+                        r = NetRecv( nsocket, filebuf, 1024 );
+                        ifNetRecv( r, return );
+
+                        ifFSWriteFile( filehandle, filebuf, r, return );
+
+                        if( filesize > FILESIZE_THRESHOLD )
+                        {
+                            total += r;
+                            if( progress < 3 && total >= percentages[progress] )
+                            {
+                                cout << filename << " : " << percentageNames[progress] << " complete." << endl;
+                                progress++;
+                            }
+                        }
+                    } while( r >= 1024 );
+
+                    // close requested file
                     FSCloseFile( filehandle );
-                    cout << "Client: Closed file." << endl;
                 }
                 else
                 {
@@ -318,10 +345,42 @@ void Sync( Config* config, vector<string>& split )
         }
     }
 
-    cout << "Client: Closing socket." << endl;
+    // close socket
     CloseSocket( nsocket );
+}
 
-    cout << "Client: Syncronization complete." << endl;
+void Sync( Config* config, vector<Hub>& hubs, vector<string>& split )
+{
+    // sync specified hub
+    if( split.size() > 1 )
+    {
+        int hubIndex = FindHub( hubs, split[1] );
+        if( hubIndex < 0 )
+        {
+            cout << "Hub \"" << split[1] << "\" was not found." << endl;
+        }
+        else
+        {
+            SyncHub( config, &hubs[hubIndex] );
+            cout << "Synchronization complete." << endl;
+        }
+    }
+    else // sync all hubs
+    {
+        if( hubs.size() > 0 )
+        {
+            for( vector<Hub>::iterator it = hubs.begin(); it != hubs.end(); it++ )
+            {
+                SyncHub( config, &(*it) );
+            }
+
+            cout << "Syncronization complete." << endl;
+        }
+        else
+        {
+            cout << "No hubs to sync." << endl;
+        }
+    }
 }
 
 inline void PrintHelp()
@@ -374,12 +433,12 @@ void StartClient( Config* config )
             }
             else if( split[0].compare( "-sync" ) == 0 )
             {
-                Sync( config, split );
+                Sync( config, hubs, split );
             }
             else if( split[0].compare( "-config" ) == 0 ||
                      split[0].compare( "-cfg" ) == 0 )
             {
-                
+                LoadConfig( config, true );
             }
             else if( split[0].compare( "-reset" ) == 0 ||
                      split[0].compare( "-rs" ) == 0 )

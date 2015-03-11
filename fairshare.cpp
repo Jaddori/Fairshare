@@ -11,6 +11,8 @@
 #define DEFAULT_PORT 12750
 #define DEFAULT_BACKLOG 3
 #define DEFAULT_SELECT_TIMEOUT 1
+#define HUBFILE_UPDATE_DELAY 10
+#define FILESIZE_THRESHOLD 1024*1024 // 1 mb
 
 struct Config
 {
@@ -126,10 +128,24 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     _expr; \
     }
 
-#define ifDirectoryGetFiles( _path, _buf, _expr ) \
+#define ifFSDirectoryGetFiles( _path, _buf, _expr ) \
     if( !FSDirectoryGetFiles( (_path), (_buf) ) ) \
     { \
     cout << "Failed to open directory \"" << (_path) << "\"." << endl; \
+    _expr; \
+    }
+
+#define ifFSWriteFile( _filehandle, _buf, _size, _expr ) \
+    if( !FSWriteFile( (_filehandle), (_buf), (_size) ) ) \
+    { \
+    cout << "Failed to write to file." << endl; \
+    _expr; \
+    }
+
+#define ifFSReadFile( _filehandle, _buf, _size, _expr ) \
+    if( !FSReadFile( (_filehandle), (_buf), (_size) ) ) \
+    { \
+    cout << "Failed to read from file." << endl; \
     _expr; \
     }
 
@@ -249,7 +265,6 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
         {
             if( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
             {
-                cout << "Skipping directory \"" << fd.cFileName << "\"." << endl;
                 continue;
             }
 
@@ -285,6 +300,28 @@ FileHandle FSOpenFile( const char* path, DWORD access, DWORD share, DWORD disp )
 void FSCloseFile( FileHandle handle )
 {
     CloseHandle( handle );
+}
+
+bool FSWriteFile( FileHandle handle, const char* buf, int size )
+{
+    DWORD bytesWritten;
+    WriteFile( handle,
+               buf,
+               size,
+               &bytesWritten,
+               0 );
+    return ( bytesWritten == size );
+}
+
+bool FSReadFile( FileHandle handle, char* buf, int size )
+{
+    DWORD bytesRead;
+    ReadFile( handle,
+              buf,
+              size,
+              &bytesRead,
+              0 );
+    return ( bytesRead > 0 );
 }
 
 bool FSValidHandle( FileHandle handle )
@@ -769,11 +806,12 @@ bool NetSendFile( NetSocket s, const char* file )
     return true;
 }
 
-bool NetRecvFileHandle( NetSocket s, FileHandle filehandle )
+typedef void (NetRecvUpdateCallback)(int);
+bool NetRecvFileHandle( NetSocket s, FileHandle filehandle, NetRecvUpdateCallback* func )
 {
     char filebuf[1024];
     int r;
-
+    
     do
     {
         r = NetRecv( s, filebuf, 1024 );
@@ -783,6 +821,7 @@ bool NetRecvFileHandle( NetSocket s, FileHandle filehandle )
         {
             return false;
         }
+        
     } while( r >= 1024 );
 
     return true;

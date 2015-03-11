@@ -12,65 +12,80 @@ ThreadReturnType ServerFunc( ThreadArgs args )
 {
     Config* config = (Config*)args;
 
+    // open socket
     NetSocket nsocket;
     ifOpenSocket( &nsocket, return 0 );
-    cout << "Server: Opening socket." << endl;
-    
-    ifNetBind( nsocket, config->port, return 0 );
-    cout << "Server: Binding socket to port \"" << config->port << "\"." << endl;
-    
-    ifNetListen( nsocket, return 0 );
-    cout << "Server: Listening for connections." << endl;
 
+    // bind socket
+    ifNetBind( nsocket, config->port, return 0 );
+
+    // listen for connections
+    ifNetListen( nsocket, return 0 );
+
+    int selectCycles = 0;
+    
     NetSocket com;
-    while( g_running )
+    while( g_running ) // loop until local client shuts us down
     {
+        if( selectCycles > 0 )
+        {
+            selectCycles--;
+        }
+        else
+        {
+            // update list of hub files
+            vector<string> locFiles;
+            FSDirectoryGetFiles( config->folder, locFiles );
+            WriteWholeFile( "./hubfiles.txt", locFiles );
+
+            selectCycles = HUBFILE_UPDATE_DELAY;
+        }
+        
+        // check for pending connection
         if( NetSelect( nsocket ) )
         {
+            // accept connection
             com = NetAccept( nsocket );
-            cout << "Server: Accepting connection." << endl;
 
+            // make sure the accepted connection is valid
             if( NetValidSocket( com ) )
             {
-                cout << "Server: Sending file list." << endl;
+                // send list of hub files
                 ifNetSendFile( com, "./hubfiles.txt", return 0 );
 
-                cout << "Server: Receiving list of unsynced files." << endl;
+                // receive list of unsynced files
                 ifNetRecvFile( com, "./unsynced.tmp", return 0 );
-
+                
                 vector<string> unsyncedFiles;
                 ifReadWholeFile( "./unsynced.tmp", unsyncedFiles, return 0 );
 
-                cout << "Server: Unsynced files (" << unsyncedFiles.size() << "):" << endl;
-                for( int i=0; i<unsyncedFiles.size(); i++ )
-                {
-                    cout << (i+1) << ". " << unsyncedFiles[i] << endl;
-                }
-
+                // make sure there is atleast one unsynced file
                 if( unsyncedFiles.size() > 0 )
                 {
                     char filebuf[1024];
+
+                    // loop through ever unsynced file and send it to the client
                     for( vector<string>::iterator it = unsyncedFiles.begin(); it != unsyncedFiles.end(); it++ )
                     {
+                        // open requested file
                         string path = config->folder + string( "/" ) + *it;
                         FileHandle filehandle = FSOpenFile( path.c_str(), FSRead );
                         if( FSValidHandle( filehandle ) )
                         {
-                            cout << "Server: Opening file \"" << path << "\"." << endl;
-
+                            // put filesize and filename in byte array
                             unsigned long remaining = FSGetFileSize( filehandle );
                             memcpy( filebuf, &remaining, sizeof(remaining) );
                             strcpy( filebuf+sizeof(remaining), it->c_str() );
 
-                            cout << "Server: sending filesize and filename." << endl;
-                            cout << "Server: \"" << *it << ":" << remaining << "\"." << endl;
+                            // send filesize and filename to client
                             ifNetSend( com, filebuf, 1024, return 0 );
 
+                            // send unsynced file to client
                             ifNetSendFileHandle( com, filehandle, remaining, return 0 );
 
-                            cout << "Server: Closing file." << endl;
+                            // close requested file
                             FSCloseFile( filehandle );
-                            cout << "Server: Closed file." << endl;
+                            cout << "Server: Syncing file \"" << *it << "\"." << endl;
                         }
                         else
                         {
@@ -79,10 +94,8 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                     }
                 }
 
-                cout << "Server: Closing socket." << endl;
+                // close accepted socket and go back to listening for connections
                 CloseSocket( com );
-
-                cout << "Server: Synchronization complete." << endl;
             }
         }
     }
