@@ -231,6 +231,10 @@ inline void ThreadWait( ThreadHandle threadHandle )
 }
 
 // IO
+#define FileHandle HANDLE
+#define FSWrite GENERIC_WRITE, 0, CREATE_ALWAYS
+#define FSRead GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING
+
 bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
 {
     bool result = false;
@@ -256,6 +260,36 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
         result = true;
     }
 
+    return result;
+}
+
+unsigned long FSGetFileSize( FileHandle handle )
+{
+    LARGE_INTEGER result;
+    GetFileSizeEx( handle, &result );
+    return result.QuadPart;
+}
+
+FileHandle FSOpenFile( const char* path, DWORD access, DWORD share, DWORD disp )
+{
+    FileHandle result = CreateFile( path,
+                                    access,
+                                    share,
+                                    0,
+                                    disp,
+                                    FILE_ATTRIBUTE_NORMAL,
+                                    0 );
+    return result;
+}
+
+void FSCloseFile( FileHandle handle )
+{
+    CloseHandle( handle );
+}
+
+bool FSValidHandle( FileHandle handle )
+{
+    bool result = ( handle != INVALID_HANDLE_VALUE );
     return result;
 }
 
@@ -359,6 +393,30 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     _expr; \
     }
 
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+{
+    unsigned long remaining = size;
+    char filebuf[1024];
+        
+    do
+    {
+        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+
+        DWORD bytesRead;
+        ReadFile( filehandle,
+                  filebuf,
+                  sendsize,
+                  &bytesRead,
+                  0 );
+
+        ifNetSend( s, filebuf, sendsize, return false );
+            
+        remaining -= sendsize;
+    } while( remaining > 0 );
+
+    return true;
+}
+
 bool NetSendFile( NetSocket s, const char* file )
 {
     bool result = false;
@@ -400,6 +458,27 @@ bool NetSendFile( NetSocket s, const char* file )
     }
 
     return result;
+}
+
+bool NetRecvFileHandle( NetSocket s, FileHandle filehandle )
+{
+    char filebuf[1024];
+    int r;
+        
+    do
+    {
+        r = NetRecv( s, filebuf, 1024 );
+        ifNetRecv( r, return false );
+
+        DWORD bytesWritten;
+        WriteFile( filehandle,
+                   filebuf,
+                   r,
+                   &bytesWritten,
+                   0 );
+    } while( r >= 1024 );
+
+    return true;
 }
 
 bool NetRecvFile( NetSocket s, const char* file )

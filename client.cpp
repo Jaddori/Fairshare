@@ -318,64 +318,6 @@ void Sync( Config* config, vector<string>& split )
         }
     }
 
-    #if WIN32
-    if( unsyncedFiles.size() > 0 )
-    {
-        char filebuf[1024];
-
-        int r = 1024;
-        while( r > 0 )
-        {
-            memset( filebuf, 0, 1024 );
-            r = NetRecv( nsocket, filebuf, 1024 );
-        
-            ifNetRecv( r, return )
-            else if( r > 0 )
-            {
-                unsigned long filesize;
-                unsigned int namelen;
-
-                int offset = 0;
-                memcpy( &filesize, filebuf, sizeof(filesize) );
-                offset += sizeof(filesize);
-                memcpy( &namelen, filebuf+offset, sizeof(namelen) );
-                offset += sizeof(namelen);
-                string filename( filebuf+offset, namelen );
-
-                cout << "Client: got fileinfo \"" << filename << ":" << filesize << "\"." << endl;
-
-                string path = config->folder + string("\\") + filename;
-                HANDLE filehandle = CreateFile( path.c_str(),
-                                                GENERIC_WRITE,
-                                                0,
-                                                0,
-                                                CREATE_ALWAYS,
-                                                FILE_ATTRIBUTE_NORMAL,
-                                                0 );
-
-                do
-                {
-                    r = NetRecv( nsocket, filebuf, 1024 );
-                    ifNetRecv( r, return );
-
-                    cout << "Client: Received \"" << r << " bytes\"." << endl;
-
-                    DWORD bytesWritten;
-                    WriteFile( filehandle,
-                               filebuf,
-                               r,
-                               &bytesWritten,
-                               0 );
-                } while( r >= 1024 );
-
-                cout << "Client: Closing file." << endl;
-                CloseHandle( filehandle );
-                cout << "Client: Closed file." << endl;
-            }
-        }
-    }
-    #endif
-
     cout << "Client: Closing socket." << endl;
     CloseSocket( nsocket );
 
