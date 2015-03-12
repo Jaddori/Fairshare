@@ -7,7 +7,6 @@
    ======================================================================== */
 
 // server.cpp
-
 ThreadReturnType ServerFunc( ThreadArgs args )
 {
     Config* config = (Config*)args;
@@ -16,12 +15,15 @@ ThreadReturnType ServerFunc( ThreadArgs args )
 
     // open socket
     NetSocket nsocket;
+    StrPrint( "Server: Opening socket." );
     ifOpenSocket( &nsocket, return 0 );
 
     // bind socket
+    StrPrint( "Server: Binding socket." );
     ifNetBind( nsocket, config->port, return 0 );
 
     // listen for connections
+    StrPrint( "Server: Listening on socket." );
     ifNetListen( nsocket, return 0 );
 
     int selectCycles = 0;
@@ -37,8 +39,16 @@ ThreadReturnType ServerFunc( ThreadArgs args )
         {
             // update list of hub files
             vector<string> locFiles;
-            FSDirectoryGetFiles( config->folder, locFiles );
-            WriteWholeFile( "./hubfiles.txt", locFiles );
+            if( FSDirectoryGetFiles( config->folder, locFiles ) )
+            {
+                WriteWholeFile( "./hubfiles.txt", locFiles );
+            }
+            else
+            {
+                cout << "Server: Failed to open hub folder \"" << config->folder << "\"." << endl;
+                cout << "Server: Shutting down." << endl;
+                return 0;
+            }
 
             selectCycles = HUBFILE_UPDATE_DELAY;
         }
@@ -47,15 +57,18 @@ ThreadReturnType ServerFunc( ThreadArgs args )
         if( NetSelect( nsocket ) )
         {
             // accept connection
+            StrPrint( "Server: Accepting connection." );
             com = NetAccept( nsocket );
 
             // make sure the accepted connection is valid
             if( NetValidSocket( com ) )
             {
                 // send list of hub files
+                StrPrint( "Server: Sending hubfiles." );
                 ifNetSendFile( com, "./hubfiles.txt", return 0 );
 
                 // receive list of unsynced files
+                StrPrint( "Server: Receiving unsynced files." );
                 ifNetRecvFile( com, "./unsynced.tmp", return 0 );
                 
                 vector<string> unsyncedFiles;
@@ -80,12 +93,17 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                             strcpy( filebuf+sizeof(remaining), it->c_str() );
 
                             // send filesize and filename to client
+                            StrPrint( "Server: Sending filename and filesize." );
+                            cout << "Server: " << *it << ":" << remaining << endl;
+                            cout << "Server: \"" << path << "\"." << endl;
                             ifNetSend( com, filebuf, 1024, return 0 );
 
                             // send unsynced file to client
+                            StrPrint( "Server: Sending file." );
                             ifNetSendFileHandle( com, filehandle, remaining, return 0 );
 
                             // close requested file
+                            StrPrint( "Server: Closing file." );
                             FSCloseFile( filehandle );
                             cout << "Server: Synced file \"" << *it << "\"." << endl;
 

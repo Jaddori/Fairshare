@@ -28,6 +28,11 @@ struct Hub
     int port;
 };
 
+void StrPrint( const char* str )
+{
+    cout << str << endl;
+}
+
 void StrSplit( const string& str, vector<string>& buf, char delimiter )
 {
     size_t first = 0;
@@ -865,6 +870,298 @@ bool NetRecvFile( NetSocket s, const char* file )
     return true;
 }
 
-#else
+#else // MacOS
 
+#include <cstring>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <dirent.h>
+
+// Threading
+#define ThreadHandle pthread_t
+#define ThreadReturnType void*
+#define ThreadArgs void*
+typedef void*(*ThreadFunc)(void*);
+
+inline ThreadHandle MakeThread( ThreadFunc func, ThreadArgs args )
+{
+    ThreadHandle result;
+    int err = pthread_create( &result, 0, func, args );
+    // TODO: Add error handling
+    return result;
+}
+
+inline void ThreadWait( ThreadHandle handle )
+{
+    pthread_join( handle, 0 );
+}
+
+inline void SleepSeconds( int seconds )
+{
+    sleep( seconds );
+}
+
+// IO
+#define FileHandle int
+#define FileDisposition int
+#define FSWrite O_WRONLY | O_CREAT
+#define FSRead O_RDONLY
+
+bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
+{
+    bool result = false;
+    
+    DIR* dir = opendir( path.c_str() );
+    if( dir != 0 )
+    {
+        struct dirent* dirinfo;
+        while( ( dirinfo = readdir( dir ) ) )
+        {
+            if( dirinfo->d_type == DT_REG ) // this is a regular file
+            {
+                buf.push_back( string(dirinfo->d_name) );
+            }
+        }
+        
+        closedir( dir );
+        result = true;
+    }
+    
+    return result;
+}
+
+unsigned long FSGetFileSize( FileHandle handle )
+{
+    unsigned long result = 0;
+    
+    struct stat filestat;
+    if( fstat( handle, &filestat ) >= 0 )
+    {
+        result = filestat.st_size;
+    }
+    
+    return result;
+}
+
+FileHandle FSOpenFile( const char* path, FileDisposition disp )
+{
+    FileHandle handle = open( path, disp, S_IRWXU );
+    return handle;
+}
+
+void FSCloseFile( FileHandle handle )
+{
+    close( handle );
+}
+
+bool FSWriteFile( FileHandle handle, const char* buf, int size )
+{
+    int bytesWritten = (int)write( handle, buf, size );
+    return ( bytesWritten == size );
+}
+
+bool FSReadFile( FileHandle handle, char* buf, int size )
+{
+    int bytesRead = (int)read( handle, buf, size );
+    return ( bytesRead == size );
+}
+
+bool FSValidHandle( FileHandle handle )
+{
+    return ( handle >= 0 );
+}
+
+// sockets
+#define NetData int // not really used in POSIX
+#define NetSocket int
+
+struct Net
+{
+    NetData data;
+    NetSocket socket;
+};
+
+inline bool OpenSocket( NetSocket* s )
+{
+    return ( ( *s = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP ) ) != -1 );
+}
+
+inline void CloseSocket( NetSocket s )
+{
+    close( s );
+}
+
+inline bool NetInit( NetData* data )
+{
+    return true;
+}
+
+inline void NetShutdown()
+{
+}
+
+inline bool NetBind( NetSocket s, int port )
+{
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons( port );
+    
+    int err = ::bind( s, (struct sockaddr*)&addr, sizeof(addr) );
+    return ( err != -1 );
+}
+
+inline bool NetListen( NetSocket s )
+{
+    int err = listen( s, DEFAULT_BACKLOG );
+    return ( err != -1 );
+}
+
+inline bool NetConnect( NetSocket s, const char* ip, int port )
+{
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr( ip );
+    addr.sin_port = htons( port );
+    
+    int err = connect( s, (struct sockaddr*)&addr, sizeof(addr) );
+    return ( err != -1 );
+}
+
+inline bool NetSelect( NetSocket s )
+{
+    fd_set readSet;
+    FD_ZERO( &readSet );
+    FD_SET( s, &readSet );
+    
+    timeval timeout;
+    timeout.tv_sec = DEFAULT_SELECT_TIMEOUT;
+    timeout.tv_usec = 0;
+    
+    int available = select( s+1, &readSet, 0, 0, &timeout );
+    return ( available > 0 );
+}
+
+inline NetSocket NetAccept( NetSocket s )
+{
+    return ( accept( s, 0, 0 ) );
+}
+
+inline bool NetValidSocket( NetSocket s )
+{
+    return ( s >= 0 );
+}
+
+inline bool NetSend( NetSocket s, const char* buf, int len = -1 )
+{
+    if( len < 0 )
+    {
+        len = (int)strlen( buf );
+    }
+    
+    int bytesSent = (int)send( s, buf, len, 0 );
+    
+    return ( bytesSent >= 0 );
+}
+
+inline int NetRecv( NetSocket s, char* buf, int len )
+{
+    return (int)recv( s, buf, len, 0 );
+}
+
+#define ifNetRecv( _recv, _expr ) \
+if( _recv < 0 ) \
+{ \
+cout << "Failed to receive network data." << endl; \
+_expr; \
+}
+
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+{
+    unsigned long remaining = size;
+    char filebuf[1024];
+    
+    do
+    {
+        int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
+        
+        if( read( filehandle, filebuf, sendsize ) < 0 )
+        {
+            return false;
+        }
+        
+        ifNetSend( s, filebuf, sendsize, return false );
+        remaining -= sendsize;
+    } while( remaining > 0 );
+    
+    return true;
+}
+
+bool NetSendFile( NetSocket s, const char* file )
+{
+    int filehandle = open( file, O_RDONLY | O_CREAT, S_IRWXU );
+    if( filehandle < 0 )
+    {
+        return false;
+    }
+    
+    struct stat filestats;
+    if( fstat( filehandle, &filestats ) < 0 )
+    {
+        return false;
+    }
+    
+    unsigned long remaining = filestats.st_size;
+    char filebuf[1024];
+    
+    do
+    {
+        int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
+        
+        if( read( filehandle, filebuf, sendsize ) < 0 )
+        {
+            return false;
+        }
+        
+        ifNetSend( s, filebuf, sendsize, return false );
+        remaining -= sendsize;
+    } while( remaining > 0 );
+    
+    close( filehandle );
+    
+    return true;
+}
+
+bool NetRecvFile( NetSocket s, const char* file )
+{
+    int filehandle = open( file, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
+    
+    if( filehandle >= 0 )
+    {
+        char filebuf[1024];
+        int r;
+        
+        do
+        {
+            r = NetRecv( s, filebuf, 1024 );
+            ifNetRecv( r, return false );
+            
+            if( write( filehandle, filebuf, r ) < 0 )
+            {
+                return false;
+            }
+        } while( r >= 1024 );
+        
+        close( filehandle );
+    }
+    
+    return true;
+}
 #endif
