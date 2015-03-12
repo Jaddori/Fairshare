@@ -12,6 +12,8 @@ ThreadReturnType ServerFunc( ThreadArgs args )
 {
     Config* config = (Config*)args;
 
+    cout << "Running on port \"" << config->port << "\"." << endl;
+
     // open socket
     NetSocket nsocket;
     ifOpenSocket( &nsocket, return 0 );
@@ -85,7 +87,9 @@ ThreadReturnType ServerFunc( ThreadArgs args )
 
                             // close requested file
                             FSCloseFile( filehandle );
-                            cout << "Server: Syncing file \"" << *it << "\"." << endl;
+                            cout << "Server: Synced file \"" << *it << "\"." << endl;
+
+                            SleepSeconds( 1 );
                         }
                         else
                         {

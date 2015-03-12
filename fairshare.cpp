@@ -645,6 +645,18 @@ void FSCloseFile( FileHandle handle )
     close( handle );
 }
 
+bool FSWriteFile( FileHandle handle, const char* buf, int size )
+{
+    int bytesWritten = write( handle, buf, size );
+    return ( bytesWritten == size );
+}
+
+bool FSReadFile( FileHandle handle, char* buf, int size )
+{
+    int bytesRead = read( handle, buf, size );
+    return ( bytesRead == size );
+}
+
 bool FSValidHandle( FileHandle handle )
 {
     bool result = ( handle >= 0 );

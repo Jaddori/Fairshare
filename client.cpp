@@ -336,6 +336,9 @@ void SyncHub( Config* config, Hub* hub )
 
                     // close requested file
                     FSCloseFile( filehandle );
+                    SleepSeconds( 1 );
+
+                    cout << "Client: Synced file \"" << filename << "\"." << endl;
                 }
                 else
                 {
