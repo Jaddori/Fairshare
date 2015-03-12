@@ -90,7 +90,8 @@ bool ReadWholeFile( const char* file, vector<string>& buf )
             getline( stream, line );
             if( stream )
             {
-                buf.push_back( line );
+                string substring = line.substr( 0, line.find_last_of( '$' ) );
+                buf.push_back( substring );
             }
         }
         stream.close();
@@ -109,7 +110,7 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     {
         for( vector<string>::const_iterator it = buf.begin(); it != buf.end(); it++ )
         {
-            stream << *it << '\n';
+            stream << *it << '$' << endl;
         }
         stream.close();
         
