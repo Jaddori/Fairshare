@@ -111,7 +111,9 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                         }
                         else
                         {
-                            cout << "Failed to open requested file \"" << path << "\"." << endl;
+                            //cout << "Failed to open requested file \"" << path << "\"." << endl;
+                            printf( "Failed to open requested file \"%s\".\n", path.c_str() );
+                            printf( "Error: %s\n", strerror(errno) );
                         }
                     }
                 }

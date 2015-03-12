@@ -109,7 +109,7 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     {
         for( vector<string>::const_iterator it = buf.begin(); it != buf.end(); it++ )
         {
-            stream << *it << endl;
+            stream << *it << '\n';
         }
         stream.close();
         
