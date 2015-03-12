@@ -307,15 +307,9 @@ void SyncHub( Config* config, Hub* hub )
                     int r;
                     uint64_t total = 0;
 
-                    int progress = 0;
-                    uint64_t percentages[3] =
-                    {
-                        filesize / 4,
-                        filesize / 2,
-                        (filesize / 4) * 3
-                    };
-                    const char* percentageNames[3] = { "25%", "50%", "75%" };
-
+                    uint64_t tenth = filesize / 10;
+                    int progress = 1;
+                    
                     do
                     {
                         r = NetRecv( nsocket, filebuf, 1024 );
@@ -326,9 +320,10 @@ void SyncHub( Config* config, Hub* hub )
                         if( filesize > FILESIZE_THRESHOLD )
                         {
                             total += r;
-                            if( progress < 3 && total >= percentages[progress] )
+
+                            if( total > ( progress * tenth ) )
                             {
-                                cout << filename << " : " << percentageNames[progress] << " complete." << endl;
+                                cout << filename << " : " << (progress*10) << "%" << endl;
                                 progress++;
                             }
                         }
