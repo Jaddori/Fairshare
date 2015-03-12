@@ -88,7 +88,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                         if( FSValidHandle( filehandle ) )
                         {
                             // put filesize and filename in byte array
-                            unsigned long remaining = FSGetFileSize( filehandle );
+                            uint64_t remaining = FSGetFileSize( filehandle );
                             memcpy( filebuf, &remaining, sizeof(remaining) );
                             strcpy( filebuf+sizeof(remaining), it->c_str() );
 

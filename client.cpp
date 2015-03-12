@@ -290,7 +290,7 @@ void SyncHub( Config* config, Hub* hub )
                 filebuf[1023] = 0; // make sure string is null-terminated
 
                 // extract filesize from the byte array
-                unsigned long filesize;
+                uint64_t filesize;
                 memcpy( &filesize, filebuf, sizeof(filesize) );
                 string filename( filebuf+sizeof(filesize) );
 
@@ -305,10 +305,10 @@ void SyncHub( Config* config, Hub* hub )
 
                     char filebuf[1024];
                     int r;
-                    unsigned long total = 0;
+                    uint64_t total = 0;
 
                     int progress = 0;
-                    unsigned long percentages[3] =
+                    uint64_t percentages[3] =
                     {
                         filesize / 4,
                         filesize / 2,

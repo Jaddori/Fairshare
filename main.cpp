@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <stdlib.h>
+#include <stdint.h>
 using namespace std;
 
 static bool g_running;

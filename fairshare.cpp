@@ -283,7 +283,7 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
     return result;
 }
 
-unsigned long FSGetFileSize( FileHandle handle )
+uint64_t FSGetFileSize( FileHandle handle )
 {
     LARGE_INTEGER result;
     GetFileSizeEx( handle, &result );
@@ -435,14 +435,14 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     _expr; \
     }
 
-bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, uint64_t size )
 {
-    unsigned long remaining = size;
+    uint64_t remaining = size;
     char filebuf[1024];
         
     do
     {
-        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+        int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
 
         DWORD bytesRead;
         ReadFile( filehandle,
@@ -476,12 +476,12 @@ bool NetSendFile( NetSocket s, const char* file )
         LARGE_INTEGER filesize;
         GetFileSizeEx( filehandle, &filesize );
 
-        unsigned long remaining = filesize.QuadPart;
+        uint64_t remaining = filesize.QuadPart;
         char filebuf[1024];
         
         do
         {
-            int sendsize = ( remaining > 1024 ? 1024 : remaining );
+            int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
 
             DWORD bytesRead;
             ReadFile( filehandle,
@@ -626,9 +626,9 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
     return result;
 }
 
-unsigned long FSGetFileSize( FileHandle handle )
+uint64_t FSGetFileSize( FileHandle handle )
 {
-    unsigned long result = 0;
+    uint64_t result = 0;
     
     struct stat filestats;
     if( fstat( handle, &filestats ) >= 0 )
@@ -767,14 +767,14 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     _expr; \
     }
 
-bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, uint64_t size )
 {
-    unsigned long remaining = size;
+    uint64_t remaining = size;
     char filebuf[1024];
 
     do
     {
-        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+        int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
 
         if( read( filehandle, filebuf, sendsize ) < 0 )
         {
@@ -802,12 +802,12 @@ bool NetSendFile( NetSocket s, const char* file )
         return false;
     }
 
-    unsigned long remaining = filestats.st_size;
+    uint64_t remaining = filestats.st_size;
     char filebuf[1024];
 
     do
     {
-        int sendsize = ( remaining > 1024 ? 1024 : remaining );
+        int sendsize = ( remaining > 1024 ? 1024 : (int)remaining );
 
         if( read( filehandle, filebuf, sendsize ) < 0 )
         {
@@ -819,27 +819,6 @@ bool NetSendFile( NetSocket s, const char* file )
     } while( remaining > 0 );
                 
     close( filehandle );
-
-    return true;
-}
-
-typedef void (NetRecvUpdateCallback)(int);
-bool NetRecvFileHandle( NetSocket s, FileHandle filehandle, NetRecvUpdateCallback* func )
-{
-    char filebuf[1024];
-    int r;
-    
-    do
-    {
-        r = NetRecv( s, filebuf, 1024 );
-        ifNetRecv( r, return false );
-
-        if( write( filehandle, filebuf, r ) < 0 )
-        {
-            return false;
-        }
-        
-    } while( r >= 1024 );
 
     return true;
 }
@@ -937,9 +916,9 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
     return result;
 }
 
-unsigned long FSGetFileSize( FileHandle handle )
+uint64_t FSGetFileSize( FileHandle handle )
 {
-    unsigned long result = 0;
+    uint64_t result = 0;
     
     struct stat filestat;
     if( fstat( handle, &filestat ) >= 0 )
@@ -1083,9 +1062,9 @@ cout << "Failed to receive network data." << endl; \
 _expr; \
 }
 
-bool NetSendFileHandle( NetSocket s, FileHandle filehandle, unsigned long size )
+bool NetSendFileHandle( NetSocket s, FileHandle filehandle, uint64_t size )
 {
-    unsigned long remaining = size;
+    uint64_t remaining = size;
     char filebuf[1024];
     
     do
@@ -1118,7 +1097,7 @@ bool NetSendFile( NetSocket s, const char* file )
         return false;
     }
     
-    unsigned long remaining = filestats.st_size;
+    uint64_t remaining = filestats.st_size;
     char filebuf[1024];
     
     do
