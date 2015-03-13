@@ -286,9 +286,17 @@ bool FSDirectoryGetFiles( const string& path, vector<string>& buf )
 
 uint64_t FSGetFileSize( FileHandle handle )
 {
+#if WIN8
+	BY_HANDLE_FILE_INFORMATION info;
+	GetFileInformationByHandle( handle, &info );
+	
+	uint64_t result = ((uint64_t)info.nFileSizeHigh << 32) | (uint64_t)info.nFileSizeLow;
+	return result;
+#else
     LARGE_INTEGER result;
     GetFileSizeEx( handle, &result );
     return result.QuadPart;
+#endif
 }
 
 FileHandle FSOpenFile( const char* path, DWORD access, DWORD share, DWORD disp )
@@ -474,10 +482,7 @@ bool NetSendFile( NetSocket s, const char* file )
 
     if( filehandle != INVALID_HANDLE_VALUE )
     {
-        LARGE_INTEGER filesize;
-        GetFileSizeEx( filehandle, &filesize );
-
-        uint64_t remaining = filesize.QuadPart;
+        uint64_t remaining = FSGetFileSize( filehandle );
         char filebuf[1024];
         
         do
