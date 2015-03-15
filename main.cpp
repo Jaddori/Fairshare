@@ -23,7 +23,11 @@ static bool g_running;
 int main( int argc, char** argv )
 {
     NetData data;
-    ifNetInit( &data, return -1 );
+    if( !NetInit( &data ) )
+	{
+		cout << "Failed to initialize network data." << endl;
+		return -1;
+	}
     
     Config config;
     

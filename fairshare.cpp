@@ -120,111 +120,6 @@ bool WriteWholeFile( const char* file, const vector<string>& buf )
     return result;
 }
 
-#define ifReadWholeFile( _file, _buf, _expr )     \
-    if( !ReadWholeFile( (_file), (_buf) ) ) \
-    { \
-    cout << "Failed to read file \"" << (_file) << "\"." << endl; \
-    _expr; \
-    }
-
-#define ifWriteWholeFile( _file, _buf, _expr ) \
-    if( !WriteWholeFile( (_file), (_buf) ) ) \
-    { \
-    cout << "Failed to write file \"" << (_file) << "\"." << endl; \
-    _expr; \
-    }
-
-#define ifFSDirectoryGetFiles( _path, _buf, _expr ) \
-    if( !FSDirectoryGetFiles( (_path), (_buf) ) ) \
-    { \
-    cout << "Failed to open directory \"" << (_path) << "\"." << endl; \
-    _expr; \
-    }
-
-#define ifFSWriteFile( _filehandle, _buf, _size, _expr ) \
-    if( !FSWriteFile( (_filehandle), (_buf), (_size) ) ) \
-    { \
-    cout << "Failed to write to file." << endl; \
-    _expr; \
-    }
-
-#define ifFSReadFile( _filehandle, _buf, _size, _expr ) \
-    if( !FSReadFile( (_filehandle), (_buf), (_size) ) ) \
-    { \
-    cout << "Failed to read from file." << endl; \
-    _expr; \
-    }
-
-#define ifOpenSocket( _socket, _expr )    \
-    if( !OpenSocket( (_socket) ) ) \
-    { \
-    cout << "Failed to open socket." << endl; \
-    _expr; \
-    }
-
-#define ifNetInit( _data, _expr )    \
-    if( !NetInit( (_data) ) ) \
-    { \
-    cout << "Failed to initialize network data." << endl; \
-    _expr; \
-    }
-
-#define ifNetBind( _socket, _port, _expr )      \
-    if( !NetBind( (_socket), (_port) ) ) \
-    { \
-    cout << "Failed to bind socket." << endl; \
-    _expr; \
-    }
-
-#define ifNetListen( _socket, _expr )    \
-    if( !NetListen( (_socket) ) ) \
-    { \
-    cout << "Failed to listen on socket." << endl; \
-    _expr; \
-    }
-
-#define ifNetConnect( _socket, _ip, _port, _expr )  \
-    if( !NetConnect( (_socket), (_ip), (_port) ) ) \
-    { \
-    cout << "Failed to connect to \"" << (_ip) << ":" << (_port) << "\"." << endl; \
-    _expr; \
-    }
-
-#define ifNetSend( _socket, _buf, _len, _expr )        \
-    if( !NetSend( (_socket), (_buf), (_len) ) ) \
-    { \
-    cout << "Failed to send data." << endl; \
-    _expr; \
-    }
-
-#define ifNetSendFileHandle( _socket, _filehandle, _size, _expr )  \
-    if( !NetSendFileHandle( (_socket), (_filehandle), (_size) ) ) \
-    { \
-    cout << "Failed to send filehandle." << endl; \
-    _expr; \
-    }
-
-#define ifNetSendFile( _socket, _file, _expr ) \
-    if( !NetSendFile( (_socket), (_file) ) ) \
-    { \
-    cout << "Failed to send file." << endl; \
-    _expr; \
-    }
-
-#define ifNetRecvFileHandle( _socket, _filehandle, _expr ) \
-    if( !NetRecvFileHandle( (_socket), (_filehandle) ) ) \
-    { \
-    cout << "Failed to receive filehandle." << endl; \
-    _expr; \
-    }
-
-#define ifNetRecvFile( _socket, _file, _expr ) \
-    if( !NetRecvFile( (_socket), (_file) ) ) \
-    { \
-    cout << "Failed to recv file." << endl; \
-    _expr; \
-    }
-
 #if WIN32
 
 #include <winsock2.h>
@@ -354,12 +249,12 @@ struct Net
     NetSocket socket;
 };
 
-inline bool OpenSocket( NetSocket* s )
+inline bool NetOpenSocket( NetSocket* s )
 {
     return ( ( *s = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP ) ) != INVALID_SOCKET );
 }
 
-inline void CloseSocket( NetSocket s )
+inline void NetCloseSocket( NetSocket s )
 {
     closesocket( s );
 }
@@ -437,12 +332,10 @@ inline int NetRecv( NetSocket s, char* buf, int len )
     return recv( s, buf, len, 0 );
 }
 
-#define ifNetRecv( _recv, _expr ) \
-    if( _recv == SOCKET_ERROR ) \
-    { \
-    cout << "Failed to receive network data." << endl; \
-    _expr; \
-    }
+inline bool NetValidRecv( int r )
+{
+	return ( r != SOCKET_ERROR );
+}
 
 bool NetSendFileHandle( NetSocket s, FileHandle filehandle, uint64_t size )
 {
@@ -460,7 +353,10 @@ bool NetSendFileHandle( NetSocket s, FileHandle filehandle, uint64_t size )
                   &bytesRead,
                   0 );
 
-        ifNetSend( s, filebuf, sendsize, return false );
+        if( !NetSend( s, filebuf, sendsize ) )
+		{
+			return false;
+		}
             
         remaining -= sendsize;
     } while( remaining > 0 );
@@ -496,7 +392,10 @@ bool NetSendFile( NetSocket s, const char* file )
                       &bytesRead,
                       0 );
 
-            ifNetSend( s, filebuf, sendsize, return false );
+            if( !NetSend( s, filebuf, sendsize ) )
+			{
+				return false;
+			}
             
             remaining -= sendsize;
         } while( remaining > 0 );
@@ -516,7 +415,10 @@ bool NetRecvFileHandle( NetSocket s, FileHandle filehandle )
     do
     {
         r = NetRecv( s, filebuf, 1024 );
-        ifNetRecv( r, return false );
+        if( !NetValidRecv( r ) )
+		{
+			return false;
+		}
 
         DWORD bytesWritten;
         WriteFile( filehandle,
@@ -549,7 +451,10 @@ bool NetRecvFile( NetSocket s, const char* file )
         do
         {
             r = NetRecv( s, filebuf, 1024 );
-            ifNetRecv( r, return false );
+            if( NetValidRecv( r ) )
+			{
+				return false;
+			}
 
             DWORD bytesWritten;
             WriteFile( filehandle,

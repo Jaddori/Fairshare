@@ -246,30 +246,58 @@ void SyncHub( Config* config, Hub* hub )
 {
     // open socket
     NetSocket nsocket;
-    ifOpenSocket( &nsocket, return );
+    if( !NetOpenSocket( &nsocket ) )
+	{
+		cout << "Client: Failed to open socket." << endl;
+		return;
+	}
 
     // connect to remote server
-    ifNetConnect( nsocket, hub->ip.c_str(), hub->port, return );
+    if( !NetConnect( nsocket, hub->ip.c_str(), hub->port ) )
+	{
+		cout << "Client: Failed to connect to " << hub->ip.c_str() << endl;
+		return;
+	}
 
     // receive available hub files
-    ifNetRecvFile( nsocket, "./hubfiles.tmp", return );
+    if( !NetRecvFile( nsocket, "./hubfiles.tmp" ) )
+	{
+		cout << "Client: Failed to receive list of hub files." << endl;
+		return;
+	}
 
     vector<string> hubFiles;
-    ifReadWholeFile( "./hubfiles.tmp", hubFiles, return );
+    if( !ReadWholeFile( "./hubfiles.tmp", hubFiles ) )
+	{
+		cout << "Client: Failed to parse list of hub files." << endl;
+		return;
+	}
     
     // read local files
     vector<string> locFiles;
-    ifFSDirectoryGetFiles( config->folder, locFiles, return );
+    if( !FSDirectoryGetFiles( config->folder, locFiles ) )
+	{
+		cout << "Client: Failed to parse local files." << endl;
+		return;
+	}
     
     // compare local files to hub files
     vector<string> unsyncedFiles;
     StrCompare( hubFiles, locFiles, unsyncedFiles );
 
     // write unsynced files to file
-    ifWriteWholeFile( "./unsynced.txt", unsyncedFiles, return );
+    if( !WriteWholeFile( "./unsynced.txt", unsyncedFiles ) )
+	{
+		cout << "Client: Failed to write list of unsynced files." << endl;
+		return;
+	}
 
     // send list of unsynced files
-    ifNetSendFile( nsocket, "./unsynced.txt", return );
+    if( !NetSendFile( nsocket, "./unsynced.txt" ) )
+	{
+		cout << "Client: Failed to send list of unsynced files." << endl;
+		return;
+	}
 
     // make sure there is atleast one unsynced file
     if( unsyncedFiles.size() > 0 )
@@ -284,7 +312,11 @@ void SyncHub( Config* config, Hub* hub )
             // receive filesize and filename
             r = NetRecv( nsocket, filebuf, 1024 );
 
-            ifNetRecv( r, return )
+            if( r == SOCKET_ERROR )
+			{
+				cout << "Client: Failed to receive network data." << endl;
+				return;
+			}
             else if( r > 0 )
             {
                 filebuf[1023] = 0; // make sure string is null-terminated
@@ -313,9 +345,17 @@ void SyncHub( Config* config, Hub* hub )
                     do
                     {
                         r = NetRecv( nsocket, filebuf, 1024 );
-                        ifNetRecv( r, return );
+                        if( !NetValidRecv( r ) )
+						{
+							cout << "Client: Failed to receive network data." << endl;
+							return;
+						}
 
-                        ifFSWriteFile( filehandle, filebuf, r, return );
+                        if( !FSWriteFile( filehandle, filebuf, r ) )
+						{
+							cout << "Client: Failed to write to disk." << endl;
+							return;
+						}
 
                         if( filesize > FILESIZE_THRESHOLD )
                         {
@@ -344,7 +384,7 @@ void SyncHub( Config* config, Hub* hub )
     }
 
     // close socket
-    CloseSocket( nsocket );
+    NetCloseSocket( nsocket );
 }
 
 void Sync( Config* config, vector<Hub>& hubs, vector<string>& split )

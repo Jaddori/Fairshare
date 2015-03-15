@@ -15,13 +15,25 @@ ThreadReturnType ServerFunc( ThreadArgs args )
 
     // open socket
     NetSocket nsocket;
-    ifOpenSocket( &nsocket, return 0 );
+    if( !NetOpenSocket( &nsocket ) )
+	{
+		cout << "Server: Failed to open socket." << endl;
+		return -1;
+	}
 
     // bind socket
-    ifNetBind( nsocket, config->port, return 0 );
+    if( !NetBind( nsocket, config->port ) )
+	{
+		cout << "Server: Failed to bind socket." << endl;
+		return -1;
+	}
 
     // listen for connections
-    ifNetListen( nsocket, return 0 );
+    if( !NetListen( nsocket ) )
+	{
+		cout << "Server: Failed to listen on socket." << endl;
+		return -1;
+	}
 
     int selectCycles = 0;
     
@@ -38,7 +50,11 @@ ThreadReturnType ServerFunc( ThreadArgs args )
             vector<string> locFiles;
             if( FSDirectoryGetFiles( config->folder, locFiles ) )
             {
-                WriteWholeFile( "./hubfiles.txt", locFiles );
+                if( !WriteWholeFile( "./hubfiles.txt", locFiles ) )
+				{
+					cout << "Server: Failed to write to disk." << endl;
+					return -1;
+				}
             }
             else
             {
@@ -60,13 +76,25 @@ ThreadReturnType ServerFunc( ThreadArgs args )
             if( NetValidSocket( com ) )
             {
                 // send list of hub files
-                ifNetSendFile( com, "./hubfiles.txt", return -1 );
-
+                if( !NetSendFile( com, "./hubfiles.txt" ) )
+				{
+					cout << "Server: Failed to send list of hub files." << endl;
+					return -1;
+				}
+				
                 // receive list of unsynced files
-                ifNetRecvFile( com, "./unsynced.tmp", return -1 );
+                if( !NetRecvFile( com, "./unsynced.tmp" ) )
+				{
+					cout << "Server: Failed to receive list of unsynced files." << endl;
+					return -1;
+				}
                 
                 vector<string> unsyncedFiles;
-                ifReadWholeFile( "./unsynced.tmp", unsyncedFiles, return -1 );
+                if( !ReadWholeFile( "./unsynced.tmp", unsyncedFiles ) )
+				{
+					cout << "Server: Failed to read parse list of unsynced files." << endl;
+					return -1;
+				}
 
                 // make sure there is atleast one unsynced file
                 if( unsyncedFiles.size() > 0 )
@@ -87,10 +115,18 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                             strcpy( filebuf+sizeof(remaining), it->c_str() );
 
                             // send filesize and filename to client
-                            ifNetSend( com, filebuf, 1024, return -1 );
+                            if( !NetSend( com, filebuf, 1024 ) )
+							{
+								cout << "Server: Failed to send network data." << endl;
+								return -1;
+							}
 
                             // send unsynced file to client
-                            ifNetSendFileHandle( com, filehandle, remaining, return -1 );
+                            if( !NetSendFileHandle( com, filehandle, remaining ) )
+							{
+								cout << "Server: Failed to send file." << endl;
+								return -1;
+							}
 
                             // close requested file
                             FSCloseFile( filehandle );
@@ -107,12 +143,12 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 }
 
                 // close accepted socket and go back to listening for connections
-                CloseSocket( com );
+                NetCloseSocket( com );
             }
         }
     }
 
-    CloseSocket( nsocket );
+    NetCloseSocket( nsocket );
 
     return 0;
 }
