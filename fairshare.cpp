@@ -26,6 +26,7 @@ struct Hub
     string name;
     string ip;
     int port;
+	int schedule;
 };
 
 void StrPrint( const char* str )

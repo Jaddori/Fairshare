@@ -18,6 +18,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
     if( !NetOpenSocket( &nsocket ) )
 	{
 		cout << "Server: Failed to open socket." << endl;
+		NetCloseSocket( nsocket );
 		return -1;
 	}
 
@@ -25,6 +26,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
     if( !NetBind( nsocket, config->port ) )
 	{
 		cout << "Server: Failed to bind socket." << endl;
+		NetCloseSocket( nsocket );
 		return -1;
 	}
 
@@ -32,6 +34,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
     if( !NetListen( nsocket ) )
 	{
 		cout << "Server: Failed to listen on socket." << endl;
+		NetCloseSocket( nsocket );
 		return -1;
 	}
 
@@ -53,6 +56,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 if( !WriteWholeFile( "./hubfiles.txt", locFiles ) )
 				{
 					cout << "Server: Failed to write to disk." << endl;
+					NetCloseSocket( nsocket );
 					return -1;
 				}
             }
@@ -60,6 +64,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
             {
                 cout << "Server: Failed to open hub folder \"" << config->folder << "\"." << endl;
                 cout << "Server: Shutting down." << endl;
+				NetCloseSocket( nsocket );
                 return -1;
             }
 
@@ -79,6 +84,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 if( !NetSendFile( com, "./hubfiles.txt" ) )
 				{
 					cout << "Server: Failed to send list of hub files." << endl;
+					NetCloseSocket( com );
 					return -1;
 				}
 				
@@ -86,6 +92,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 if( !NetRecvFile( com, "./unsynced.tmp" ) )
 				{
 					cout << "Server: Failed to receive list of unsynced files." << endl;
+					NetCloseSocket( com );
 					return -1;
 				}
                 
@@ -93,6 +100,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                 if( !ReadWholeFile( "./unsynced.tmp", unsyncedFiles ) )
 				{
 					cout << "Server: Failed to read parse list of unsynced files." << endl;
+					NetCloseSocket( com );
 					return -1;
 				}
 
@@ -118,6 +126,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                             if( !NetSend( com, filebuf, 1024 ) )
 							{
 								cout << "Server: Failed to send network data." << endl;
+								NetCloseSocket( com );
 								return -1;
 							}
 
@@ -125,6 +134,7 @@ ThreadReturnType ServerFunc( ThreadArgs args )
                             if( !NetSendFileHandle( com, filehandle, remaining ) )
 							{
 								cout << "Server: Failed to send file." << endl;
+								NetCloseSocket( com );
 								return -1;
 							}
 

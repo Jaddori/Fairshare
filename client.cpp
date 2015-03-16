@@ -121,6 +121,8 @@ bool LoadHubs( vector<Hub>& hubs )
             getline( stream, hub.ip, ' ' );
             stream >> hub.port;
             stream.ignore();
+			
+			hub.schedule = 0;
 
             if( stream )
             {
@@ -249,6 +251,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !NetOpenSocket( &nsocket ) )
 	{
 		cout << "Client: Failed to open socket." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
 
@@ -256,6 +259,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !NetConnect( nsocket, hub->ip.c_str(), hub->port ) )
 	{
 		cout << "Client: Failed to connect to " << hub->ip.c_str() << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
 
@@ -263,6 +267,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !NetRecvFile( nsocket, "./hubfiles.tmp" ) )
 	{
 		cout << "Client: Failed to receive list of hub files." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
 
@@ -270,6 +275,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !ReadWholeFile( "./hubfiles.tmp", hubFiles ) )
 	{
 		cout << "Client: Failed to parse list of hub files." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
     
@@ -278,6 +284,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !FSDirectoryGetFiles( config->folder, locFiles ) )
 	{
 		cout << "Client: Failed to parse local files." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
     
@@ -289,6 +296,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !WriteWholeFile( "./unsynced.txt", unsyncedFiles ) )
 	{
 		cout << "Client: Failed to write list of unsynced files." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
 
@@ -296,6 +304,7 @@ void SyncHub( Config* config, Hub* hub )
     if( !NetSendFile( nsocket, "./unsynced.txt" ) )
 	{
 		cout << "Client: Failed to send list of unsynced files." << endl;
+		NetCloseSocket( nsocket );
 		return;
 	}
 
@@ -315,6 +324,7 @@ void SyncHub( Config* config, Hub* hub )
             if( r == SOCKET_ERROR )
 			{
 				cout << "Client: Failed to receive network data." << endl;
+				NetCloseSocket( nsocket );
 				return;
 			}
             else if( r > 0 )
@@ -348,12 +358,14 @@ void SyncHub( Config* config, Hub* hub )
                         if( !NetValidRecv( r ) )
 						{
 							cout << "Client: Failed to receive network data." << endl;
+							NetCloseSocket( nsocket );
 							return;
 						}
 
                         if( !FSWriteFile( filehandle, filebuf, r ) )
 						{
 							cout << "Client: Failed to write to disk." << endl;
+							NetCloseSocket( nsocket );
 							return;
 						}
 
@@ -421,6 +433,32 @@ void Sync( Config* config, vector<Hub>& hubs, vector<string>& split )
     }
 }
 
+void Schedule( Config* config, vector<Hub>& hubs, vector<string>& split )
+{
+	// specific hub
+	if( split.size() > 2 )
+	{
+		int index = FindHub( split[1] );
+		if( index >= 0 )
+		{
+			int time = (int)strtol( split[2], (char**)0, 10 );
+			hubs[index].schedule = time;
+		}
+	}
+	else if( split.size() > 1 )
+	{
+		int time = (int)strtol( split[1], (char**)0, 10 );
+		for( vector<Hub>::iterator it = hubs.begin(); it != hubs.ens(); it++ )
+		{
+			it->schedule = time;
+		}
+	}
+	else
+	{
+		cout << "Usage: -schedule [optional:hub] [seconds]" << endl;
+	}
+}
+
 inline void PrintHelp()
 {
     cout << "-add [hub] [ip] [opt:port]\t : adds a new hub with ip and port." << endl;
@@ -473,6 +511,10 @@ void StartClient( Config* config )
             {
                 Sync( config, hubs, split );
             }
+			else if( split[0].compare( "-schedule" ) == 0 )
+			{
+				Schedule( config, hubs, split );
+			}
             else if( split[0].compare( "-config" ) == 0 ||
                      split[0].compare( "-cfg" ) == 0 )
             {
